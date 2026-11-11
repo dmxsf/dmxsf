@@ -2,6 +2,8 @@
 
 The companion code of the [DMXSF](https://dmxsf.com/en/) course on large language model algorithms: the core algorithms of the course rebuilt from scratch in Python and PyTorch, with one runnable lab per wiki page that checks its own results.
 
+[![CI](https://github.com/dmxsf/dmxsf/actions/workflows/ci.yml/badge.svg)](https://github.com/dmxsf/dmxsf/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 [中文](README.md) · [Course site](https://dmxsf.com/en/) · [Code and course map](https://dmxsf.com/en/code/)
 
 ## What it is
@@ -25,7 +27,7 @@ uv run dmxsf roadmap engineer          # which labs a study route asks for, week
 uv run dmxsf doctor                    # check the environment
 ```
 
-Without uv: `pip install -e .` and drop `uv run` from the commands. You can also run a script directly: `python labs/architecture/attention-basics/run.py`.
+Without uv: `pip install -e .` and drop `uv run` from the commands. You can also run a script directly: `python labs/architecture/attention-basics/run.py`. On Linux without a GPU you can install only the CPU build of PyTorch (a much smaller download; this is how CI does it): `uv venv && uv pip install --torch-backend cpu -e .`, then `source .venv/bin/activate` and drop `uv run` from the commands as well.
 
 ## Course and labs
 

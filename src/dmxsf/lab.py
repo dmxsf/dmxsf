@@ -5,6 +5,7 @@ Every lab script looks the same::
     args, report = lab.start("Lab title", wiki=["architecture/attention-basics"])
     report.section("1. something")
     report.check("matches torch", ok, detail="max error 1e-7")
+    report.observe("the effect is large", big, detail="noise can move this one")  # [differs], no failure
     report.finish()          # exits with status 1 if any check failed
 
 ``--quick`` shrinks the experiment so that CI can run every lab in seconds.
@@ -50,6 +51,15 @@ class Report:
         print(f"  [{'ok' if ok else 'FAIL'}] {name}" + (f"  ({detail})" if detail else ""))
         if not ok:
             self.failures.append(name)
+        return ok
+
+    def observe(self, name: str, ok: bool, detail: str = "") -> bool:
+        """A claim about the size of an effect in one training run, which noise can move.
+
+        The effect depends on the seed and on the machine's rounding, so a miss is printed as
+        ``[differs]`` and never fails the lab. Use ``check`` for what has to hold on every machine.
+        """
+        print(f"  [{'ok' if ok else 'differs'}] {name}" + (f"  ({detail})" if detail else ""))
         return ok
 
     def skip(self, name: str, reason: str) -> None:

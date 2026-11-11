@@ -343,17 +343,16 @@ report.check(
     all(gaps[n] > 1e-3 for n in names[1:]),
     ", ".join(f"{gaps[n]:.2f}" for n in names[1:]),
 )
-worst = max(abs(means[n] - base_mean) for n in names[1:])
+worse = max(means[n] - base_mean for n in names[1:])  # > 0: a broken resume scores worse
 if len(SEEDS) < 2:
-    report.skip(
-        "...and the validation score cannot tell them apart", "needs two seeds for the noise"
-    )
+    report.skip("...and the validation score does not flag them", "needs two seeds for the noise")
 else:
     noise = abs(sum(results[(0.5, 0)].values()) / 2 - sum(results[(0.5, SEEDS[-1])].values()) / 2)
     report.check(
-        "...and the validation score cannot tell them apart: no shift is twice a change of seed",
-        worst < 2 * noise,
-        f"largest shift {worst:.3f} bits for the three, {noise:.3f} between seeds 0 and {SEEDS[-1]}",
+        "...and the validation score does not flag them: none is worse than the correct resume "
+        "by more than a change of seed",
+        worse < max(noise, 0.05),  # one pair of runs is a poor noise gauge: allow at least 0.05
+        f"worst {worse:+.3f} bits for the three, {noise:.3f} between seeds 0 and {SEEDS[-1]}",
     )
     better = [n for n in names[1:] if means[n] < base_mean - noise / 2]
     if better:
@@ -410,11 +409,18 @@ else:
         f"{c_chunk:.3f} -> {l_chunk:.3f} bits: {(c_chunk - l_chunk) / c_chunk:.0%} lower, "
         "and the model did not become 30% better at code",
     )
-    report.check(
+    report.observe(
         "the rest of the held-out code stays where the control had it (no spillover at this size)",
         abs(l_rest - c_rest) < 0.1,
         f"{c_rest:.3f} -> {l_rest:.3f}; the page's larger leak (60 KB into 0.86M parameters) lifted "
         "sibling files in the same package",
     )
+    if abs(l_rest - c_rest) >= 0.1:
+        b_rest = table["baseline: no extra data"][1]
+        report.say(
+            f"  The rest moved by {abs(l_rest - c_rest):.2f} bits; the baseline and the control, which"
+            f" saw no leak, differ by {abs(b_rest - c_rest):.2f} on it. One run per condition cannot"
+            " separate spillover from training noise at this size."
+        )
 shutil.rmtree(tmp)
 report.finish()

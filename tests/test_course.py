@@ -160,7 +160,8 @@ def test_lab_quick_run_passes(key):
         cwd=ROOT,
         timeout=900,
     )
-    assert done.returncode == 0, done.stdout[-3000:] + done.stderr[-3000:]
+    failed = "\n".join(line for line in done.stdout.splitlines() if "[FAIL]" in line)
+    assert done.returncode == 0, f"{failed}\n{done.stdout[-2000:]}{done.stderr[-2000:]}"
     assert "[FAIL]" not in done.stdout
     # a lab that never calls report.finish() would exit 0 whatever its checks said
     assert "All checks passed." in done.stdout.splitlines()[-1]

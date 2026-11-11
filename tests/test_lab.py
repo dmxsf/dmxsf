@@ -44,6 +44,17 @@ def test_skip_is_printed_and_does_not_count_as_a_failure(capsys) -> None:
     assert "[skip] needs the full run" in capsys.readouterr().out
 
 
+def test_a_missed_observation_is_printed_as_differs_and_does_not_fail(capsys) -> None:
+    _, report = lab.start("A lab", argv=[])
+    assert report.observe("holds here", True, detail="1.0") is True
+    assert report.observe("noise moved it", False, detail="0.3 vs 0.1") is False
+    report.finish()
+    out = capsys.readouterr().out
+    assert "[ok] holds here  (1.0)" in out
+    assert "[differs] noise moved it  (0.3 vs 0.1)" in out
+    assert "All checks passed." in out
+
+
 def test_tables_are_aligned_and_floats_get_four_significant_digits(capsys) -> None:
     _, report = lab.start("A lab", argv=[])
     capsys.readouterr()

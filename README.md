@@ -2,6 +2,8 @@
 
 [DMXSF](https://dmxsf.com) 大模型算法教程的配套代码：用 Python 和 PyTorch 把课程里的核心算法从零重新实现一遍，每篇 Wiki 都有一个能运行、会自己检查结果的实验。
 
+[![CI](https://github.com/dmxsf/dmxsf/actions/workflows/ci.yml/badge.svg)](https://github.com/dmxsf/dmxsf/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 [English](README.en.md) · [课程网站](https://dmxsf.com) · [代码与课程的对应表](https://dmxsf.com/code/)
 
 ## 它是什么
@@ -25,7 +27,7 @@ uv run dmxsf roadmap engineer          # 一条学习路线按周该跑哪些实
 uv run dmxsf doctor                    # 检查环境
 ```
 
-不用 uv 也可以：`pip install -e .` 之后把命令里的 `uv run` 去掉。也可以直接运行脚本：`python labs/architecture/attention-basics/run.py`。
+不用 uv 也可以：`pip install -e .` 之后把命令里的 `uv run` 去掉。也可以直接运行脚本：`python labs/architecture/attention-basics/run.py`。Linux 上没有 GPU 的话，可以只装 CPU 版的 PyTorch（下载小得多，CI 就是这样装的）：`uv venv && uv pip install --torch-backend cpu -e .`，然后 `source .venv/bin/activate`，同样去掉命令里的 `uv run`。
 
 ## 课程与实验的对应
 
