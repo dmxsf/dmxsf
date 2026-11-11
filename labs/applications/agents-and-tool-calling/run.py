@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import itertools
 import json
-from math import comb
+from math import comb, fsum
 
 import numpy as np
 
@@ -306,8 +306,9 @@ def main() -> None:
     rows = []
     hat, at = [], []
     for k in range(1, RUNS + 1):
-        h = sum(pass_hat_k(RUNS, w, k) for w in WINS) / n_tasks
-        a = sum(pass_at_k(RUNS, w, k) for w in WINS) / n_tasks
+        # fsum: Python 3.12's sum() is compensated and 3.10's is not, and 0.475 is a rounding tie
+        h = fsum(pass_hat_k(RUNS, w, k) for w in WINS) / n_tasks
+        a = fsum(pass_at_k(RUNS, w, k) for w in WINS) / n_tasks
         hat.append(h)
         at.append(a)
         rows.append([k, f"{h:.2f}", f"{a:.2f}"])

@@ -28,7 +28,7 @@ Unit tests: `uv run pytest tests/test_pretraining_accounting.py`
 - Sections 1-2: a linear layer costs 2 * tokens * d_in * d_out forward and two matrix products (dX and dW) backward, exactly twice the forward; a 4-layer small Llama is 2NT plus attention forward, equal to the FLOP (1,750,073,344, the page's number), and the total is 1.083 times 6NT, the whole excess being the attention term.
 - Section 3: build only the shapes on the meta device (a 70B model costs no memory) and count parameters: Llama 3 8B has N = 7.50B parameters in matrix products, only 93.5% of the total, so 6 x total over-counts by about 7%.
 - Sections 4-5: the attention share of the training FLOPs rises with the sequence length (the 7B shape: 14.0% at 4096, 83.9% at 131,072) and crosses the linear part near 25,200 and 97,800; the measured FLOPs of full recomputation equal Megatron-LM's formula 96 B s l h^2 (1 + s/6h + V/16lh) to the FLOP, and PyTorch's non-reentrant checkpoint skips the last matrix product of each block.
-- Section 6: infer MFU from 6ND and a technical report's GPU hours (Llama 2 7B 39.1%, 70B 42.8%); 10,000 A100 hours for a 7B model on 2T tokens cannot be true, 7 times short even at an MFU of 100%. The last table is the MFU of this machine (fp32, CPU): higher with a bigger batch (5.6% -> 29.2%), and it differs by machine.
+- Section 6: infer MFU from 6ND and a technical report's GPU hours (Llama 2 7B 39.1%, 70B 42.8%); 10,000 A100 hours for a 7B model on 2T tokens cannot be true, 7 times short even at an MFU of 100%. The last table is the MFU of this machine (fp32, CPU): higher with a bigger batch (6.2% -> 30.0%), and it differs by machine.
 - Sections 7-9: the model state is 16 bytes per parameter; the activation bytes per token and layer follow a formula, and what PyTorch really saves is 1.35 times that (the formula describes fused kernels); with the three accounts together, Llama 2 7B on 8 x 80 GiB under ZeRO-3 fits 3 sequences per micro-batch (71.00 GiB) but not 4 (90.48 GiB).
 
 ## Exercises
@@ -141,13 +141,13 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   [ok] 10,000 A100 hours for 7B on 2T tokens cannot be true: 7 times short even at MFU 100%  (8.4e+22 FLOPs needed, 1.1e+22 available at the peak)
 
   MFU on this machine (fp32, CPU), against the best matrix product it can do:
-  best 2048^2 matrix product: 2,424 GFLOP/s on 8 threads
+  best 2048^2 matrix product: 2,414 GFLOP/s on 8 threads
   model (layers x hidden)  tokens per step  ms per step  MFU  
   -----------------------  ---------------  -----------  -----
-                  4 x 256              128           20   5.6%
-                  4 x 256             2048           66  29.2%
-                  6 x 512             2048          248  42.8%
-  [ok] a larger batch feeds the matrix units better: MFU at 2,048 tokens is more than twice that at 128  (5.6% -> 29.2%)
+                  4 x 256              128           18   6.2%
+                  4 x 256             2048           64  30.0%
+                  6 x 512             2048          299  35.7%
+  [ok] a larger batch feeds the matrix units better: MFU is higher at 2,048 tokens than at 128  (6.2% -> 30.0%, differs by machine)
   [ok] MFU is a fraction of the peak  (numbers differ by machine)
 
 ## 7. Memory: the model state is 16 bytes per parameter
@@ -199,7 +199,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   [ok] a 4th sequence per micro-batch (about 90 GiB) no longer fits, a 3rd does
   [ok] with recomputation 29 sequences would fit: 'more than twenty' on the page  (paid for with a third more FLOPs (section 5))
 
-All checks passed. (3.8s)
+All checks passed. (4.2s)
 ```
 
 </details>

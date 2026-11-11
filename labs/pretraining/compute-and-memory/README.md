@@ -28,7 +28,7 @@ uv run python labs/pretraining/compute-and-memory/run.py --quick    # 缩小规�
 - 第 1–2 节：一个线性层前向是 2·token·d_in·d_out，反向是两次矩阵乘（dX 与 dW），恰好是前向的两倍；一个 4 层的小 Llama 前向是 2NT 加注意力，按 FLOP 数精确相等（1,750,073,344，页面上的数字），总量是 6NT 的 1.083 倍，多出的全是注意力项。
 - 第 3 节：用 meta 设备只建形状（70B 模型也不占内存）数参数：Llama 3 8B 的矩阵参数 N 是 7.50B，只占总数的 93.5%，所以 6×总参数会多算约 7%。
 - 第 4–5 节：注意力占训练 FLOPs 的比例随序列长度上升（7B 形状：4096 时 14.0%，131,072 时 83.9%），两条曲线的交点约在 25,200 与 97,800；全量重计算的实测 FLOPs 与 Megatron-LM 的公式 96·B·s·l·h²·(1 + s/6h + V/16lh) 逐 FLOP 相等，PyTorch 的 non-reentrant 检查点会少算每块最后一次矩阵乘。
-- 第 6 节：用 6ND 与技术报告的 GPU 小时反推 MFU（Llama 2 7B 39.1%、70B 42.8%）；10,000 个 A100 小时训练 2T token 的 7B 模型不可能，即使 MFU 为 100% 也差 7 倍。最后一张表是本机（fp32、CPU）的 MFU：批越大越高（5.6% → 29.2%），数字因机器而异。
+- 第 6 节：用 6ND 与技术报告的 GPU 小时反推 MFU（Llama 2 7B 39.1%、70B 42.8%）；10,000 个 A100 小时训练 2T token 的 7B 模型不可能，即使 MFU 为 100% 也差 7 倍。最后一张表是本机（fp32、CPU）的 MFU：批越大越高（6.2% → 30.0%），数字因机器而异。
 - 第 7–9 节：模型状态每个参数 16 字节；激活每 token 每层的字节数用一个公式预测，实测 PyTorch 保存的比公式多 1.35 倍（公式描述的是融合内核）；把三笔账合在一起，Llama 2 7B 在 8×80 GiB 上 ZeRO-3 微批 3 个序列放得下（71.00 GiB），第 4 个放不下（90.48 GiB）。
 
 ## 练习
@@ -141,13 +141,13 @@ uv run python labs/pretraining/compute-and-memory/run.py --quick    # 缩小规�
   [ok] 10,000 A100 hours for 7B on 2T tokens cannot be true: 7 times short even at MFU 100%  (8.4e+22 FLOPs needed, 1.1e+22 available at the peak)
 
   MFU on this machine (fp32, CPU), against the best matrix product it can do:
-  best 2048^2 matrix product: 2,424 GFLOP/s on 8 threads
+  best 2048^2 matrix product: 2,414 GFLOP/s on 8 threads
   model (layers x hidden)  tokens per step  ms per step  MFU  
   -----------------------  ---------------  -----------  -----
-                  4 x 256              128           20   5.6%
-                  4 x 256             2048           66  29.2%
-                  6 x 512             2048          248  42.8%
-  [ok] a larger batch feeds the matrix units better: MFU at 2,048 tokens is more than twice that at 128  (5.6% -> 29.2%)
+                  4 x 256              128           18   6.2%
+                  4 x 256             2048           64  30.0%
+                  6 x 512             2048          299  35.7%
+  [ok] a larger batch feeds the matrix units better: MFU is higher at 2,048 tokens than at 128  (6.2% -> 30.0%, differs by machine)
   [ok] MFU is a fraction of the peak  (numbers differ by machine)
 
 ## 7. Memory: the model state is 16 bytes per parameter
@@ -199,7 +199,7 @@ uv run python labs/pretraining/compute-and-memory/run.py --quick    # 缩小规�
   [ok] a 4th sequence per micro-batch (about 90 GiB) no longer fits, a 3rd does
   [ok] with recomputation 29 sequences would fit: 'more than twenty' on the page  (paid for with a third more FLOPs (section 5))
 
-All checks passed. (3.8s)
+All checks passed. (4.2s)
 ```
 
 </details>

@@ -259,11 +259,15 @@ def main() -> None:
         bits["greedy"] < bits["real"] - 0.5 and bits["beam"] < bits["real"] - 0.5,
         f"real {bits['real']:.2f}, greedy {bits['greedy']:.2f}, beam {bits['beam']:.2f} bits/byte",
     )
-    report.check(
-        "no beam is worse than greedy (not a guarantee of the algorithm, only what these prompts show)",
-        all(b >= g - 1e-6 for b, g in zip(beam_scores, greedy_scores, strict=True)),
-        f"beam better on {wins}, equal on {ties} of {nb}",
-    )
+    beam_name = "no beam is worse than greedy (not a guarantee of the algorithm, only what these prompts show)"
+    if QUICK:
+        report.skip(beam_name, "needs the full run")
+    else:
+        report.check(
+            beam_name,
+            all(b >= g - 1e-6 for b, g in zip(beam_scores, greedy_scores, strict=True)),
+            f"beam better on {wins}, equal on {ties} of {nb}",
+        )
 
     # -----------------------------------------------------------------------------------------
     report.section("5. Repetition penalties on a 256-symbol vocabulary")
