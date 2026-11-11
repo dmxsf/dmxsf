@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Tools
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+uv.lock
+
+# Lab outputs and caches (trained checkpoints, downloaded files)
+.cache/
+runs/
+*.pt
+*.ckpt
+
+# Scratch space for one-off experiments
+tmp/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
