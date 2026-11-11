@@ -1,0 +1,48 @@
+name: full-sweep (temporary)
+
+on:
+  push:
+    branches: [ci-check]
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    name: every lab, full run, Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: |
+          uv venv
+          uv pip install --torch-backend cpu -e . --group dev
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Run every lab in full
+        run: |
+          mkdir -p out
+          { nproc; python -c "import sys, torch, numpy; print(sys.version.split()[0], torch.__version__, numpy.__version__, torch.get_num_threads())"; } | tee out/_machine.txt
+          for key in $(python -c "from dmxsf import course; print(' '.join(l.key for l in course.LABS))"); do
+            stem=${key//\//__}
+            start=$(date +%s)
+            code=0
+            timeout 5400 python labs/$key/run.py > out/$stem.txt 2> out/$stem.err || code=$?
+            echo "$key exit=$code wall=$(( $(date +%s) - start ))s" | tee -a out/_summary.txt
+          done
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sweep-py${{ matrix.python-version }}
+          path: out
