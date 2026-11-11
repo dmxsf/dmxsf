@@ -19,7 +19,7 @@
 src/dmxsf/
   course.py         课程地图：实验与 Wiki 页面的对应、标题与摘要、运行时间、三条学习路线（唯一来源）
   cli.py            dmxsf list | run | roadmap | doctor
-  lab.py            实验脚本的公共部分：--quick / --seed，Report（section、say、check、skip、table、finish）
+  lab.py            实验脚本的公共部分：--quick / --seed，Report（section、say、check、observe、skip、table、finish）
   utils.py, data.py, models.py   小工具；字节语料与批处理；缓存的小模型（base 与 draft）
   foundations/ architecture/ pretraining/ post_training/ inference/ applications/ multimodal/ evaluation/
                     与 Wiki 章节同名的库代码，一个模块对应一到两篇页面
@@ -41,7 +41,7 @@ scripts/export_site_data.py        生成站点的 src/data/code-labs.ts
 ## 4. 写一个实验
 
 1. 库代码写在 `src/dmxsf/<section>/<module>.py`：模块文档字符串第一行说清楚它做什么，注明对应的课程页面；配 `tests/test_<section>_<module>.py`。
-2. `labs/<section>/<slug>/run.py`：`args, report = lab.start(TITLE, wiki=[...])`，分节 `report.section("1. ...")`，每个结论一条 `report.check(name, ok, detail)`；`--quick` 缩小规模，只有完整运行才成立的检查用 `report.skip` 跳过；最后 `report.finish()`（有失败就以 1 退出）。
+2. `labs/<section>/<slug>/run.py`：`args, report = lab.start(TITLE, wiki=[...])`，分节 `report.section("1. ...")`，每个结论一条 `report.check(name, ok, detail)`；`--quick` 缩小规模，只有完整运行才成立的检查用 `report.skip` 跳过；关于一次训练里效应大小的说法（转变发生在第几步、记住了多少、差别是否超过噪声）会随种子和机器漂移，用 `report.observe`（没成立打印 `[differs]`，不使实验失败），并在 `[differs]` 时用 `report.say` 解释为什么不能当结论；最后 `report.finish()`（有失败就以 1 退出）。
 3. 能复现课程页数字的地方，把页面的数字写进检查里（精确比较或给出容差），不要只打印。
 4. 在 `course.py` 登记（`LABS`、`TEXTS`，必要时 `ROUTES`），写两份 README：课程页链接、运行命令、代码位置、看什么、练习，以及一次完整运行的输出。
 5. 重新生成站点数据并复制到站点仓库，在那边跑 `pnpm test`（约定见站点 `AGENTS.md` 的 5.10 节）。
@@ -57,7 +57,7 @@ uv run pytest -m "not slow"     # 库模块的单元测试与对照表检查
 uv run pytest                   # 另含每个实验的 --quick 冒烟运行（几分钟）
 ```
 
-CI（`.github/workflows/ci.yml`）在推送与 PR 时跑 Python 3.10 与 3.12。要兼容 3.10：不要在 f 字符串里复用外层引号，不要用 3.11 之后才有的标准库。改了实验的行为之后，还要跑一遍完整运行（`uv run python labs/<section>/<slug>/run.py`），确认全部 `[ok]`。
+CI（`.github/workflows/ci.yml`）在推送与 PR 时跑 Python 3.10 与 3.12。要兼容 3.10：不要在 f 字符串里复用外层引号，不要用 3.11 之后才有的标准库。改了实验的行为之后，还要跑一遍完整运行（`uv run python labs/<section>/<slug>/run.py`），确认没有 `[FAIL]`，并看一眼有没有 `[differs]`。
 
 ## 6. 同步到站点
 
@@ -73,6 +73,7 @@ uv run python scripts/export_site_data.py > /path/to/dmxsf.com/src/data/code-lab
 - **Python 标准库当语料。** `ByteCorpus.python_code()` 读的是当前解释器的标准库，换 Python 版本数字会略有不同；用到它的实验在 README 里写了这一点，检查阈值要留余量。
 - **计时类检查。** KV Cache、连续批处理、投机解码的耗时随机器和负载波动：只检查比值与方向，并且不要在跑它们的同时做别的吃 CPU 的事（构建、第二个训练）。
 - **`--quick` 的检查不能依赖训练好的模型，也不能依赖版本。** 训练 60 步的小模型不会有完整运行里的现象，这类结论一律 `skip(…, "needs the full run")`。换 Python 或 PyTorch 版本结果也要一样：浮点求和后再取整用 `math.fsum`（3.12 的 `sum()` 做了补偿求和，3.10 没有，0.475 这种平局会取整成不同的数）；PyTorch 2.14 的 `FlopCounterMode` 不统计 CPU 上融合的注意力核，相关检查要先判断能否统计，不能就 `skip`。
+- **训练出来的现象会随种子和机器漂移。** 全部实验在 GitHub 的 Linux 运行器（Python 3.10 与 3.12）上完整跑过：induction head 形成的步数、小模型记住多少泄漏的题、SFT 在 300 步上的起飞点、一次训练里“某效应大于某值”的幅度，都与 M2 Max 上的不同。所以检查分三层：公式、算术和同一次运行内的因果关系（逐比特相同、方向）用 `check`；依赖大小的阈值要留足余量（看过几台机器上的范围再定），并在注释里写下见过的范围；效应大小本身（“改写的泄漏传到基准措辞上超过 5 个点”）用 `observe`。需要训练到某个现象出现的实验不要写死步数：训练到现象出现、再多训练若干步、设上限（见 `architecture/attention-basics`）。新实验写完先用 `--seed 1`、`2`、`3` 各跑一遍，再推到分支上让 GitHub 的 Linux 运行器完整跑一遍。
 - **`--hf` / `--bge` 路径** 需要 `uv sync --extra hf` 和已下载的模型；离线运行用 `HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1`。模型换了版本，页面数字可能变，先读轨迹再改 README。
 - **`ruff format` 会重排长语句**，所以用脚本打补丁时不要依赖旧文本的换行；改完跑 `ruff check --fix` 与 `ruff format`。
 - **zsh 里** 变量不要叫 `path`；后台长任务用 `python -u` 并把输出重定向到文件。
