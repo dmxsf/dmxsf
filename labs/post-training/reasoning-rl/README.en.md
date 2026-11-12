@@ -172,7 +172,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   for scale: SFT on the 360 correct answers themselves reaches 99.3% (200 steps, lr 1e-4). RLVR saw one bit per sampled answer, not
   the answer; it is the tool for when a checker exists and demonstrations do not.
 
-All checks passed. (195.5s)
+All checks passed. (206.6s)
 ```
 
 </details>

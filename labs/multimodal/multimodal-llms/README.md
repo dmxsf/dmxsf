@@ -183,7 +183,7 @@ uv run python labs/multimodal/multimodal-llms/run.py --quick    # 缩小规模�
 
 (8. Rerun the page's CLIP experiment on the real model: add --hf. It needs the extra `hf`, the model and CIFAR-10.)
 
-All checks passed. (112.1s)
+All checks passed. (109.6s)
 ```
 
 </details>
@@ -332,7 +332,7 @@ All checks passed. (112.1s)
   [ok] the page's four loss values  (got {})
   [ok] in every row of the 8 x 8 similarity matrix the maximum is on the diagonal
 
-All checks passed. (166.9s)
+All checks passed. (182.3s)
 ```
 
 </details>

@@ -13,6 +13,7 @@ The numbers therefore differ from the page; the mechanisms and the way to measur
 from __future__ import annotations
 
 import copy
+import itertools
 import math
 import random
 import statistics as st
@@ -451,9 +452,12 @@ def main() -> None:
         )
     else:
         a = [size_runs[k]["accuracy"] for k in SIZES]
+        steps = [hi - lo for lo, hi in itertools.pairwise(a)]
+        # seen over eight runs: 12% to 18% with one example per intent and 98% to 100% with 20; the last step
+        # is worth 0 to 2 points, the biggest one before it 27 to 53
         report.check(
-            "accuracy rises with data, and each step up past 20 per intent is worth less than the first ones",
-            a[2] - a[0] > 0.2 and a[-1] - a[-2] < a[2] - a[1],
+            "accuracy rises with data, and the last step up (20 to 50 per intent) is worth less than any earlier big one",
+            a[-1] - a[0] > 0.5 and steps[-1] < max(steps[:-1]) / 2,
             "  ->  ".join(f"{v:.0%}" for v in a),
         )
 

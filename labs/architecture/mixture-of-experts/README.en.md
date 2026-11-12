@@ -29,7 +29,7 @@ Unit tests: `uv run pytest tests/test_architecture_moe.py tests/test_architectur
 - Section 1: computing only the chosen tokens equals the dense computation (error 5.6e-17) at k/E of the work; the three gates (Switch, Mixtral, DeepSeek-V3) have weight sums 0.376, 1.000 and 2.5.
 - Section 2: parameters counted on real modules (shapes only, nothing allocated): Mixtral 8x7B has 46.70B parameters and 12.88B active per token, DeepSeek-V3 671.03B and 37.55B, as on the page; "8x7B" is not 8 x 7B: eight full Mistral-7B models would be 57.9B, while it is 1.61B shared plus 8 experts of 5.64B.
 - Section 6: how many experts a decoding batch touches: Mixtral at batch 1, 4, 16, 64 uses 2.00, 5.47, 7.92, 8.00 and reads 27.3%, 69.2%, 98.8%, 99.7% of the weights; DeepSeek-V3 needs a batch of 22 for half of its experts to be used.
-- Section 7: the stronger the router's preference, the busier the busiest expert (2.665x the average at tilt 1, 29.5% of assignments dropped by capacity); DeepSeek-V3's bias rule brings the load back to the sampling noise floor (1.19x) without a loss term, too small a step is slow and too large a step oscillates, worse than no bias (1.99x against 1.75x).
+- Section 7: the stronger the router's preference, the busier the busiest expert (2.665x the average at tilt 1, 29.5% of assignments dropped by capacity); DeepSeek-V3's bias rule brings the load back to the sampling noise floor (1.19x) without a loss term; too small a step is slow (gamma 0.001: after 100 steps the busiest expert still carries 3.0x the average load, against 1.16x with gamma 0.01) and too large a step oscillates (at gamma 0.2 the load jumps about 6x as much as at 0.01), and on this seed it is worse than no bias (1.99x against 1.75x; on 3 of 5 seeds it is not, so that claim is an observation and prints `[differs]` when it fails).
 - Section 8: a small MoE trained on bytes against dense models of the same cost and size: the MoE (with the auxiliary loss) is only 0.018 nats above the dense FFN 128 of equal active parameters, within the 0.061 seed range, and the output says "no difference we can claim"; it is 0.109 nats behind the dense FFN 512 of equal total size, more than the range.
 
 ## Exercises
@@ -71,7 +71,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   [ok] one expert and k=1 is an ordinary feed-forward network
 
 ## 2. Total and active parameters, counted on real modules
-  built Mixtral 8x7B and DeepSeek-V3 on the meta device in 7.0s
+  built Mixtral 8x7B and DeepSeek-V3 on the meta device in 9.3s
   Mixtral 8x7B: 46,702,792,704 parameters; 12,879,925,248 active per token (12.88B; 12.75B without the input table)
       the page's closed form has no norm gains (266,240 here): without them 12.75B, 27.3% of the total
   DeepSeek-V3: 671,026,404,352 parameters; 37,552,282,624 active per token (37.55B; 36.63B without the input table)
@@ -168,8 +168,9 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   tilt 0.4, gamma 0.01: Spearman correlation between the learned bias and the popularity -0.98; most popular expert 4, lowest bias 4
   [ok] a reasonable step reaches the sampling floor without any loss term  (1.19x against 1.19x with no preference)
   [ok] the learned bias opposes the popularity
-  [ok] a step that is too small is slow (tilt 1.5, gamma 0.001: still above 2.5x after 100 steps)  (3.02x)
-  [ok] a step that is too large oscillates and is worse than no bias at all (tilt 0.4, gamma 0.2)  (1.99x against 1.75x)
+  [ok] a step that is too small is slow (tilt 1.5: after 100 steps gamma 0.001 leaves the busiest expert at more than 1.5x the load it has with gamma 0.01)  (3.02x against 1.16x)
+  [ok] a step that is too large oscillates: with gamma 0.2 the busiest expert carries more load and its load jumps about more than with gamma 0.01 (tilt 0.4)  (1.99x against 1.19x, jitter 0.355 against 0.057)
+  [ok] ...and with tilt 0.4 it is worse than no bias at all  (1.99x against 1.75x)
   64 experts, k=8, 1024 tokens, tilt 0.4: busiest expert 3.10x and 16.8% dropped with no bias; after 100 steps of gamma 0.005: 1.24x and 0.0%
   [ok] the same mechanism balances a DeepSeek-V3-shaped layer
 
@@ -177,10 +178,10 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   2 layers, d_model 64, 500 steps, validation loss in nats per byte, 3 seed(s)
   model                      params   active   FLOPs/token  ms/step  val loss  range over seeds
   -------------------------  -------  -------  -----------  -------  --------  ----------------
-             dense, FFN 128   98,624   98,624         229k     14.5     1.964     1.956 - 1.969
-  MoE 8x64, top-2, aux 0.01  247,104   99,648         231k     34.5     1.982     1.943 - 2.003
-    MoE 8x64, top-2, no aux  247,104   99,648         231k     31.9     1.931     1.922 - 1.942
-             dense, FFN 512  246,080  246,080         524k     21.0     1.873     1.866 - 1.883
+             dense, FFN 128   98,624   98,624         229k     18.3     1.964     1.956 - 1.969
+  MoE 8x64, top-2, aux 0.01  247,104   99,648         231k     46.6     1.982     1.943 - 2.003
+    MoE 8x64, top-2, no aux  247,104   99,648         231k     35.0     1.931     1.922 - 1.942
+             dense, FFN 512  246,080  246,080         524k     21.2     1.873     1.866 - 1.883
   MoE                        busiest / average load  dropped at factor 1.25
   -------------------------  ----------------------  ----------------------
   MoE 8x64, top-2, aux 0.01                   1.268                    0.6%
@@ -192,7 +193,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   [ok] measured FLOPs per token: the MoE costs what the small dense model costs, the wide one more  (1.009x and 2.29x of the small dense model)
   [ok] every variant learned (well below the 5.55 nats of a uniform guess)  (worst 1.982)
 
-All checks passed. (171.1s)
+All checks passed. (205.1s)
 ```
 
 </details>

@@ -348,7 +348,7 @@ All checks passed. (0.3s)
     Question: How much can I borrow in advance and when must I p...
   [ok] the chunks that fit the budget are the page's: the right one first, then one that has nothing to do with it  (['exp-advance', 'leave-annual'])
 
-All checks passed. (6.0s)
+All checks passed. (6.4s)
 ```
 
 </details>

@@ -112,7 +112,7 @@ uv run python labs/architecture/transformer-block/run.py --quick    # 缩小规�
   [ok] swapping learned positions for RoPE is a clear gain  (0.314 nats)
   [ok] grouped-query attention halves the KV cache without a clear loss  (-0.020 nats)
 
-All checks passed. (165.5s)
+All checks passed. (302.4s)
 ```
 
 </details>

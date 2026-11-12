@@ -43,7 +43,7 @@ uv run python labs/inference/quantization/run.py --quick    # 缩小规模的冒
 
 ## 注意
 
-- 模型是 84 万参数的字节级 GPT，指标是留出的 Shakespeare 上的比特/字节（页面用的是 WikiText-2 的困惑度，二者是对数关系）；这么小的模型没有页面里 0.5B 模型那样的大离群通道，所以第 4、6 节用“造出来”的离群通道演示机制。
+- 模型是 84 万参数的字节级 GPT，指标是留出的 Shakespeare 上的比特/字节（页面用的是 WikiText-2 的困惑度，二者是对数关系）；这么小的模型没有页面里 0.5B 模型那样的大离群通道，所以第 4、6 节用“造出来”的离群通道演示机制。第 3 节与第 5 节里几条关于倍数的说法随训练出来的模型而变（Apple M2 Max 上的六个种子和 Linux 运行器上的两个模型，共八个）：INT3（g32）的损失是 INT4（g32）的 4.9 到 10 倍，就近取整比 GPTQ 多损失的倍数在 INT4 上是 1.9 到 8.3 倍、INT3 上是 2.1 到 3.2 倍，AWQ 式搜索在有离群通道的模型上把就近取整的 INT4 损失降到 0.34 到 0.94 倍（八个里有两个没到 0.8 倍）；硬检查只要求方向（INT3 至少 3 倍、GPTQ 更低），倍数写成观察，不成立时打印 `[differs]`。
 - 这个实验把当前 Python 解释器自带的标准库源码当作“代码语料”，所以换一个 Python 版本，涉及代码语料的数字会略有不同。
 
 ## 输出
@@ -119,8 +119,8 @@ uv run python labs/inference/quantization/run.py --quick    # 缩小规模的冒
   max|w| / median|w| per layer: median 8.3, largest 12.5 (the page's 0.5B model: 27 and 117).
   [ok] INT8 with one scale per row is invisible  (-0.0004 bits/byte)
   [ok] INT4 with one scale for the whole tensor is more than twice as bad as one per row  (+0.1326 against +0.0459)
-  [ok] smaller groups always help, but each extra bit buys less than the one before  (saved per extra bit: 0.106, 0.052, 0.009, 0.007)
-  [ok] round to nearest breaks below 4 bits: INT3 costs 5x INT4 (g32), INT2 loses half a bit per byte  (INT3 +0.163, INT4 +0.016, INT2 +1.726)
+  [ok] smaller groups help, and the first extra bits buy more than the last ones  (saved per extra bit: 0.106, 0.052, 0.009, 0.007)
+  [ok] round to nearest breaks below 4 bits: INT3 costs 3x INT4 (g32), INT2 loses half a bit per byte  (INT3 +0.163, INT4 +0.016, INT2 +1.726)
 
   INT4 g32 on one kind of layer at a time (delta bits/byte):
   layer kind  q_proj   k_proj   v_proj   o_proj   fc       proj   
@@ -186,12 +186,13 @@ uv run python labs/inference/quantization/run.py --quick    # 缩小规模的冒
   natural model  INT3 g32       GPTQ                 0.0070          +0.0575      0.3
     30x outlier  INT4 g32        RTN                 0.0050          +0.0404      0.1
     30x outlier  INT4 g32  AWQ-style                 0.0036          +0.0210      0.2
-    30x outlier  INT4 g32       GPTQ                 0.0017          +0.0119      0.4
+    30x outlier  INT4 g32       GPTQ                 0.0017          +0.0119      0.3
     30x outlier  INT3 g32        RTN                 0.0206          +0.1878      0.1
     30x outlier  INT3 g32  AWQ-style                 0.0188          +0.1871      0.2
     30x outlier  INT3 g32       GPTQ                 0.0075          +0.0437      0.3
   [ok] output error: GPTQ is the lowest and the AWQ-style search is never above round to nearest
-  [ok] GPTQ beats round to nearest in bits per byte by more than 2x, at INT4 and INT3  (INT4: +0.0035 against +0.0162, INT3: +0.0575 against +0.1630)
+  [ok] GPTQ loses fewer bits per byte than round to nearest, at INT4 and INT3  (INT4: +0.0035 against +0.0162, INT3: +0.0575 against +0.1630)
+  [ok] ...and by more than 2x at both  (RTN loses 4.7x as much at INT4 and 2.8x as much at INT3)
   the AWQ-style search at INT4 leaves 1.16x of RTN's loss on the natural model and 0.52x with the constructed outlier:
   it does not help on the first and helps on the second (below 0.8x counts as help).
   [ok] with an outlier channel the AWQ-style search cuts round-to-nearest's INT4 loss by 20% or more  (0.52x)
@@ -240,7 +241,7 @@ uv run python labs/inference/quantization/run.py --quick    # 缩小规模的冒
   the per-channel numbers need a whole group of 32 tokens before they can be rounded: a real cache
   keeps the newest tokens in 16 bits (KIVI); this evaluation rounds whole windows, so it is optimistic.
 
-All checks passed. (18.8s)
+All checks passed. (18.2s)
 ```
 
 </details>

@@ -28,7 +28,7 @@ Unit tests: `uv run pytest tests/test_inference_kv_cache.py`
 - Section 1: the memory formula and the page's numbers: Llama 3 8B takes 128 KiB per token, 1 GiB per 8,192 tokens and 32 GiB for 32 sequences, more than the weights (16.1 GB); Llama 2 7B without GQA takes 512 KiB per token, 4 times as much; KV heads and precision multiply: MHA fp16 512 KiB, GQA-8 int8 64 KiB, MQA int4 4 KiB.
 - Section 2: the formula against real tensors: after a 100-token prefill, 4 / 2 / 1 KV heads hold 409,600 / 204,800 / 102,400 bytes, exactly the formula; a preallocated cache costs its full length from the first token.
 - Section 3: cached and uncached decoding agree: the same 64 greedy tokens, logits from the incremental path differ from a full recompute by at most 8.3e-07; the positions processed to write 64 tokens are 6,112 against 128 (48x).
-- Section 4: time (read the ratios, not the absolute numbers): a 4.8M-parameter GPT writing 256 tokens; without a cache the time per token rises with the sequence (14.4 -> 21.3 ms), with one it hardly moves (2.1 -> 2.2 ms) and the whole run is 8.5x faster; prefill costs 0.08 ms per token against 2.07 ms for decoding, 27 times cheaper per token: decoding reads all the weights and the whole cache to produce one token and is bound by memory and overhead, which is why serving systems batch many sequences per step.
+- Section 4: time (read the ratios, not the absolute numbers): a 4.8M-parameter GPT writing 256 tokens; without a cache the time per token (the median of each third of the run) rises with the sequence (10.2 -> 17.0 ms), with one it hardly moves (1.7 -> 1.5 ms) and the whole run is 8.3x faster; prefill costs 0.06 ms per token against 1.72 ms for decoding, 31 times cheaper per token: decoding reads all the weights and the whole cache to produce one token and is bound by memory and overhead, which is why serving systems batch many sequences per step.
 
 ## Exercises
 
@@ -91,22 +91,22 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   [ok] counted positions match the page's arithmetic: sum of (P + t) without a cache, P + n with one  (6,112 and 128)
 
 ## 4. Time: the saving, and prefill against decode (CPU; read the ratios)
-  a 4.8M-parameter GPT (6 layers, d = 256) writing 256 tokens after a 128-token prompt; ms per new token, by third of the run:
+  a 4.8M-parameter GPT (6 layers, d = 256) writing 256 tokens after a 128-token prompt; median ms per new token, by third of the run:
             first third  middle third  last third  whole run (s)
   --------  -----------  ------------  ----------  -------------
-  no cache         14.4          18.9        21.3           4.67
-  KV cache          2.1           2.1         2.2           0.54
-  [ok] the cost per token rises through the run without a cache, and rises more slowly with one  (last third over first: no cache x1.48, cache x1.05)
-  [ok] the whole run is at least 3x faster with the cache  (8.5x)
-  the whole run is 8.5x faster with the cache (prefill included).
+  no cache         10.2          14.6        17.0           3.58
+  KV cache          1.7           1.6         1.5           0.42
+  [ok] the cost per token rises through the run without a cache, and rises more slowly with one  (last third over first: no cache x1.67, cache x0.89)
+  [ok] the whole run is at least 3x faster with the cache  (8.3x)
+  the whole run is 8.3x faster with the cache (prefill included).
 
-  prefill: 9.7 ms for 128 tokens = 0.08 ms per token, about 126 GFLOP/s;
-  decode:  2.07 ms per token, about 4.6 GFLOP/s.
-  [ok] prefill handles a token far cheaper than decode does (parallel over the prompt)  (27x cheaper per token)
+  prefill: 7.1 ms for 128 tokens = 0.06 ms per token, about 171 GFLOP/s;
+  decode:  1.72 ms per token, about 5.6 GFLOP/s.
+  [ok] prefill handles a token far cheaper than decode does (parallel over the prompt)  (31x cheaper per token)
   decode reads the weights and the whole cache to produce one token; at batch 1 that is
   memory and overhead bound, which is why serving systems batch many sequences per step.
 
-All checks passed. (5.6s)
+All checks passed. (4.4s)
 ```
 
 </details>

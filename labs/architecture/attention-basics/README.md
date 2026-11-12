@@ -37,6 +37,10 @@ uv run python labs/architecture/attention-basics/run.py --quick    # 缩小规�
 1. 把第 4 节配置里的 `n_layer=2` 改成 1：模型还能学会复制吗？（提示：归纳头需要两层配合。）
 2. 把第 2 节 `for d in (4, 16, 64, 256, 1024)` 加上 4096，方差和最大权重怎么变？
 
+## 注意
+
+- 第 4 节里归纳头成形需要的步数随种子与机器而不同：在 Apple M2 Max 上试过的 14 个种子里，13 个在 1,100 到 1,800 步之间成形，第 14 个（`--seed 13`）训练到 8,000 步也没有；GitHub 的一台 Linux 运行器上，`--seed 0` 在 3,000 步后同样没有。所以脚本每一轮最多训练 3,000 步，没成形就换一个种子（加 100）从头来，最多三次，输出里会写明（`--seed 13` 会打印“training again with seed 113”）；成形之后再多训 300 步（至少训满 2,000 步）。表里“突然下降”发生的步数是这一次训练的，不是普遍的数字。
+
 ## 输出
 
 下面是在 Apple M2 Max（12 核，仅用 CPU）、Python 3.12、PyTorch 2.15.0 上的完整运行结果。换一台机器，涉及训练的数字可能在末位上不同，计时类的数字取决于机器；检查用的是阈值与容差，不要求逐位相同。
@@ -94,7 +98,7 @@ uv run python labs/architecture/attention-basics/run.py --quick    # 缩小规�
   2000              0.3294           4.918
   the repeat's loss fell by 2.38 nats between step 1200 and step 1300
   [ok] it starts at chance
-  [ok] then falls abruptly, by more than 1.5 nats in a twentieth of the run
+  [ok] then falls abruptly, by more than 1.5 nats within 100 steps
   [ok] the repeat is predicted far better than chance  (0.33 nats)
   [ok] everything else stays at chance (it is random)
 
@@ -125,7 +129,7 @@ uv run python labs/architecture/attention-basics/run.py --quick    # 缩小规�
      layer 1 head 3               1.118
   [ok] switching off the right head costs at least 1 nat  (worst 5.19)
 
-All checks passed. (32.4s)
+All checks passed. (32.3s)
 ```
 
 </details>

@@ -43,7 +43,7 @@ Run again after a change: the checks that compare with the page's numbers turn i
 
 ## Notes
 
-- The model is the byte-level GPT of 842,496 parameters and the metric is bits per byte on held-out Shakespeare (the page uses perplexity on WikiText-2; the two are related by a logarithm). A model this small has no outlier channels as large as the page's 0.5B model, so sections 4 and 6 build the outliers to show the mechanism.
+- The model is the byte-level GPT of 842,496 parameters and the metric is bits per byte on held-out Shakespeare (the page uses perplexity on WikiText-2; the two are related by a logarithm). A model this small has no outlier channels as large as the page's 0.5B model, so sections 4 and 6 build the outliers to show the mechanism. A few of the ratios in sections 3 and 5 change with the trained model (eight models: six seeds on an Apple M2 Max, two on a Linux runner): INT3 (g32) costs 4.9x to 10x INT4 (g32); round to nearest loses 1.9x to 8.3x as much as GPTQ at INT4 and 2.1x to 3.2x at INT3; the AWQ-style search leaves 0.34x to 0.94x of round to nearest's INT4 loss on the model with the outlier channel (two of the eight stay above 0.8x). The hard checks only ask for the direction (INT3 at least 3x, GPTQ lower); the ratios are observations and print `[differs]` when they fail.
 - This lab uses the source of the running interpreter's standard library as its code corpus, so the numbers that involve it differ a little between Python versions.
 
 ## Output
@@ -119,8 +119,8 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   max|w| / median|w| per layer: median 8.3, largest 12.5 (the page's 0.5B model: 27 and 117).
   [ok] INT8 with one scale per row is invisible  (-0.0004 bits/byte)
   [ok] INT4 with one scale for the whole tensor is more than twice as bad as one per row  (+0.1326 against +0.0459)
-  [ok] smaller groups always help, but each extra bit buys less than the one before  (saved per extra bit: 0.106, 0.052, 0.009, 0.007)
-  [ok] round to nearest breaks below 4 bits: INT3 costs 5x INT4 (g32), INT2 loses half a bit per byte  (INT3 +0.163, INT4 +0.016, INT2 +1.726)
+  [ok] smaller groups help, and the first extra bits buy more than the last ones  (saved per extra bit: 0.106, 0.052, 0.009, 0.007)
+  [ok] round to nearest breaks below 4 bits: INT3 costs 3x INT4 (g32), INT2 loses half a bit per byte  (INT3 +0.163, INT4 +0.016, INT2 +1.726)
 
   INT4 g32 on one kind of layer at a time (delta bits/byte):
   layer kind  q_proj   k_proj   v_proj   o_proj   fc       proj   
@@ -186,12 +186,13 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   natural model  INT3 g32       GPTQ                 0.0070          +0.0575      0.3
     30x outlier  INT4 g32        RTN                 0.0050          +0.0404      0.1
     30x outlier  INT4 g32  AWQ-style                 0.0036          +0.0210      0.2
-    30x outlier  INT4 g32       GPTQ                 0.0017          +0.0119      0.4
+    30x outlier  INT4 g32       GPTQ                 0.0017          +0.0119      0.3
     30x outlier  INT3 g32        RTN                 0.0206          +0.1878      0.1
     30x outlier  INT3 g32  AWQ-style                 0.0188          +0.1871      0.2
     30x outlier  INT3 g32       GPTQ                 0.0075          +0.0437      0.3
   [ok] output error: GPTQ is the lowest and the AWQ-style search is never above round to nearest
-  [ok] GPTQ beats round to nearest in bits per byte by more than 2x, at INT4 and INT3  (INT4: +0.0035 against +0.0162, INT3: +0.0575 against +0.1630)
+  [ok] GPTQ loses fewer bits per byte than round to nearest, at INT4 and INT3  (INT4: +0.0035 against +0.0162, INT3: +0.0575 against +0.1630)
+  [ok] ...and by more than 2x at both  (RTN loses 4.7x as much at INT4 and 2.8x as much at INT3)
   the AWQ-style search at INT4 leaves 1.16x of RTN's loss on the natural model and 0.52x with the constructed outlier:
   it does not help on the first and helps on the second (below 0.8x counts as help).
   [ok] with an outlier channel the AWQ-style search cuts round-to-nearest's INT4 loss by 20% or more  (0.52x)
@@ -240,7 +241,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   the per-channel numbers need a whole group of 32 tokens before they can be rounded: a real cache
   keeps the newest tokens in 16 bits (KIVI); this evaluation rounds whole windows, so it is optimistic.
 
-All checks passed. (18.8s)
+All checks passed. (18.2s)
 ```
 
 </details>

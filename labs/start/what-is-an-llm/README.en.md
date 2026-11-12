@@ -217,7 +217,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
 
   List them all: dmxsf list. Run one: dmxsf run kv-cache --quick. A route: dmxsf roadmap engineer.
 
-All checks passed. (3.4s)
+All checks passed. (3.2s)
 ```
 
 </details>

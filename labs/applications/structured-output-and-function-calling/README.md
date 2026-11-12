@@ -151,7 +151,7 @@ uv run python labs/applications/structured-output-and-function-calling/run.py --
   [ok] the loop: a bad call comes back as an error result, the model repairs it, then answers
   [ok] a model that keeps calling tools is cut off at the turn limit
 
-All checks passed. (134.8s)
+All checks passed. (118.8s)
 ```
 
 </details>

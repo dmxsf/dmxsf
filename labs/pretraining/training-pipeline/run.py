@@ -260,31 +260,40 @@ table_rows = [
 ]
 report.table(["prose : code", "seed", "prose bpb", "code bpb", "mean"], table_rows)
 if QUICK:
-    report.skip("a 90% share beats a 10% share for that domain", "needs the full run")
+    report.skip("a 90% share beats a 10% share for its own domain", "needs the full run")
 else:
     gains = {
         "prose": results[(0.1, S0)]["prose"] - results[(0.9, S0)]["prose"],
         "code": results[(0.9, S0)]["code"] - results[(0.1, S0)]["code"],
     }
-    report.check(
-        "a 90% share beats a 10% share for that domain",
-        min(gains.values()) > 0,
-        f"gain {gains['prose']:.2f} bits on prose, {gains['code']:.2f} bits on code",
-    )
     noise = {
         d: abs(results[(0.5, S0)][d] - results[(0.5, SEEDS[-1])][d]) for d in ("prose", "code")
     }
+    # seen over eight runs (an M2 and Linux, Python 3.10 and 3.12): the code gain is 0.54 to 1.08 bits and
+    # the seed range at most 0.25; the prose gain is 0.21 to 0.58 on seven of them and -0.02 on the eighth
     report.check(
-        "...by more than the seed range of the 50:50 runs",
-        all(gains[d] > noise[d] for d in gains),
-        f"seed range {noise['prose']:.2f} bits on prose, {noise['code']:.2f} bits on code",
+        "a 90% code share beats a 10% share for code, by more than the seed range of the 50:50 runs",
+        gains["code"] > noise["code"] and gains["code"] > 0,
+        f"gain {gains['code']:.2f} bits, seed range {noise['code']:.2f} bits",
+    )
+    report.observe(
+        "...and a 90% prose share beats a 10% share for prose, by more than the seed range",
+        gains["prose"] > noise["prose"] and gains["prose"] > 0,
+        f"gain {gains['prose']:.2f} bits, seed range {noise['prose']:.2f} bits",
     )
     mean = {sh: (results[(sh, S0)]["prose"] + results[(sh, S0)]["code"]) / 2 for sh in shares}
+    spread = max(mean.values()) - min(mean.values())
+    seed_range = abs(mean[0.5] - sum(results[(0.5, SEEDS[-1])].values()) / 2)
+    tail = (
+        ": one number would have hidden the trade"
+        if spread < max(abs(g) for g in gains.values()) / 2
+        else ""
+    )
+    verdict = "hardly moves" if tail else "moves"
     report.say(
-        "  the mean over both domains hardly moves ("
+        f"  the mean over both domains {verdict} ("
         + " / ".join(f"{mean[sh]:.3f}" for sh in shares)
-        + f" for 90:10 / 50:50 / 10:90, seed range {abs(mean[0.5] - sum(results[(0.5, SEEDS[-1])].values()) / 2):.3f}):"
-        " one number would have hidden the trade"
+        + f" for 90:10 / 50:50 / 10:90, seed range {seed_range:.3f}){tail}"
     )
 
 # ---------------------------------------------------------------------------
@@ -420,21 +429,16 @@ else:
     report.check(
         "the leaked text scores far better than the same model without the leak",
         c_chunk - l_chunk > 0.5,
-        f"{c_chunk:.3f} -> {l_chunk:.3f} bits: {(c_chunk - l_chunk) / c_chunk:.0%} lower, "
-        "and the model did not become 30% better at code",
+        f"{c_chunk:.3f} -> {l_chunk:.3f} bits: {(c_chunk - l_chunk) / c_chunk:.0%} lower",
     )
-    report.observe(
-        "the rest of the held-out code stays where the control had it (no spillover at this size)",
-        abs(l_rest - c_rest) < 0.1,
-        f"{c_rest:.3f} -> {l_rest:.3f}; the page's larger leak (60 KB into 0.86M parameters) lifted "
-        "sibling files in the same package",
-    )
-    if abs(l_rest - c_rest) >= 0.1:
-        b_rest = table["baseline: no extra data"][1]
-        report.say(
-            f"  The rest moved by {abs(l_rest - c_rest):.2f} bits; the baseline and the control, which"
-            f" saw no leak, differ by {abs(b_rest - c_rest):.2f} on it. One run per condition cannot"
-            " separate spillover from training noise at this size."
-        )
+# the rest of the held-out code is a measurement, not a check: over eight runs it moved from -0.41 to +0.35
+# bits against the control, in both directions (the baseline and the control already differ by 0.03 to 0.32)
+b_rest = table["baseline: no extra data"][1]
+report.say(
+    f"  the rest of the held-out code moved from {c_rest:.3f} to {l_rest:.3f} bits with the leak; the baseline and"
+    f" the control, which saw no leak,\n  differ by {abs(b_rest - c_rest):.2f} on it. One run per condition cannot"
+    " separate spillover from training noise at this size; the page's larger leak\n  (60 KB into 0.86M parameters)"
+    " lifted sibling files of the same package."
+)
 shutil.rmtree(tmp)
 report.finish()

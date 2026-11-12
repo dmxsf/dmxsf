@@ -28,7 +28,7 @@ Unit tests: `uv run pytest tests/test_pretraining_scaling.py tests/test_pretrain
 
 - Section 1: Chinchilla's coefficients recompute the page's table (1e21 FLOPs -> 2.8B parameters on 0.06T tokens; 1e25 -> 312.1B on 5.34T), and the closed form is the brute-force minimum; the valley is flat: half or double the optimal size costs under 0.02 (worst 0.0100); Llama 3 8B sits 0.05 above the optimum at its budget.
 - Section 2: count the tokens that will be served and the best model shrinks from 46.9B (nothing served) to 9.6B (1e15 tokens served) while the training tokens grow from 0.88T to 50.6T and tokens per parameter from 19 to 5264: that is the arithmetic behind small, heavily over-trained models.
-- Section 3 is our own small study: 4 widths x 3 token budgets x 2 seeds, learning rate tuned in every cell. With the fewest tokens the biggest model is not the best (that is N = 176,128); the best learning rate falls as the model grows (0.1 -> 0.001); not tuning it costs more (+0.293 for the smallest model) than a size step buys (0.192).
+- Section 3 is our own small study: 4 widths x 3 token budgets x 2 seeds, learning rate tuned in every cell. With the fewest tokens the biggest model is not the best (that is N = 176,128 and the biggest trails it by 0.074; from the smallest to the biggest size the loss falls by only 0.056, against 0.422 with the most tokens); the best learning rate falls as the model grows (0.1 -> 0.001); not tuning it costs more (+0.293 for the smallest model) than a size step buys (0.192).
 - The fit of section 3: E = 1.41, alpha = 0.48, beta = 0.45 (rms 0.068); leaving the biggest run out and predicting it: 1.947 predicted, 1.847 measured, an error of 0.101 against 0.390 for "same as the previous cell", but not smaller than the seed range (0.292): a grid this small demonstrates the method, it proves nothing.
 - Section 4: on synthetic data with a known truth the coefficients (A, B, beta) are far less certain than the predictions they combine into (the half-width of B's 10-90% range is 232% of the truth, that of the extrapolated loss 1.8%). At the measured noise the extra loss of a mis-fitted compute-optimal size is only 0.0009 (median); with ten times the noise the coefficients are useless, the median is 0.054 and the worst tenth pays 0.251 or more, more than cutting the budget tenfold (0.109). Compare predictions, not coefficients.
 
@@ -104,7 +104,8 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   seed-to-seed range over the 12 cells: median 0.029, largest 0.292 nats
   [ok] more tokens always help: at every size the loss falls with D
   [ok] with the most data every size step helps: loss falls with N
-  [ok] with the fewest tokens (64 steps) the biggest model is not the best: it cannot use its capacity  (best at 32,768 tokens: N = 176,128)
+  [ok] a bigger model buys much less when data is scarce: from the smallest to the biggest size the loss falls less with the fewest tokens than with the most  (0.056 nats at 32,768 tokens against 0.422 at 524,288)
+  [ok] with the fewest tokens (64 steps) the biggest model has no clear lead: it cannot use its capacity  (best at 32,768 tokens: N = 176,128; the biggest trails by 0.074)
   [ok] the best learning rate falls with model size  (0.1 for N = 12,288, 0.001 for N = 884,736)
 
   what an untuned learning rate costs (3e-3 for every size, 131,072 tokens):
@@ -151,7 +152,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   with ten times the noise the median penalty is 0.054 and the worst tenth lose 0.251 or more; for scale, a tenfold cut in the compute budget costs 0.109
   so a fitted 'alpha = 0.34' deserves less trust than the curve it came from; compare predictions, not coefficients
 
-All checks passed. (136.4s)
+All checks passed. (150.2s)
 ```
 
 </details>

@@ -37,6 +37,10 @@ Run again after a change: the checks that compare with the page's numbers turn i
 1. Change `n_layer=2` in the section 4 config to 1: can the model still learn to copy? (Hint: induction heads need two layers working together.)
 2. Add 4096 to the `for d in (4, 16, 64, 256, 1024)` of section 2: how do the variance and the largest weight change?
 
+## Notes
+
+- How many steps the induction heads need varies with the seed and the machine: of 14 seeds tried on an Apple M2 Max, 13 formed between steps 1,100 and 1,800 and the 14th (`--seed 13`) had not after 8,000; on a GitHub Linux runner `--seed 0` had not after 3,000 steps either. So the script trains at most 3,000 steps per round and, if the repeat has not clicked, starts again from a fresh seed (plus 100), up to three times, and says so in the output (`--seed 13` prints 'training again with seed 113'); after the click it trains 300 steps more (at least 2,000 in all). The step of the abrupt drop in the table belongs to this run, it is not a universal number.
+
 ## Output
 
 The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with Python 3.12 and PyTorch 2.15.0. On another machine the numbers that involve training can differ in the last digits and timings depend on the machine; the checks use thresholds and tolerances, not bit-for-bit equality.
@@ -94,7 +98,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   2000              0.3294           4.918
   the repeat's loss fell by 2.38 nats between step 1200 and step 1300
   [ok] it starts at chance
-  [ok] then falls abruptly, by more than 1.5 nats in a twentieth of the run
+  [ok] then falls abruptly, by more than 1.5 nats within 100 steps
   [ok] the repeat is predicted far better than chance  (0.33 nats)
   [ok] everything else stays at chance (it is random)
 
@@ -125,7 +129,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
      layer 1 head 3               1.118
   [ok] switching off the right head costs at least 1 nat  (worst 5.19)
 
-All checks passed. (32.4s)
+All checks passed. (32.3s)
 ```
 
 </details>

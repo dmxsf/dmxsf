@@ -28,7 +28,7 @@ uv run python labs/pretraining/scaling-laws/run.py --quick    # 缩小规模的�
 
 - 第 1 节：用 Chinchilla 的系数重算页面的表（1e21 FLOPs → 2.8B 参数、0.06T token；1e25 → 312.1B、5.34T），闭式解与暴力搜索的最小值一致；谷底很平，最优规模减半或加倍只多损失不到 0.02（最差 0.0100）；Llama 3 8B 比同预算的最优点高 0.05。
 - 第 2 节：把“部署后要服务多少 token”算进去，最优模型从 46.9B（不服务）一路缩小到 9.6B（服务 1e15 token），训练 token 从 0.88T 涨到 50.6T，token/参数比从 19 到 5264，这就是小模型过训练的账。
-- 第 3 节是我们自己的小实验：4 种宽度 × 3 种数据量 × 2 个种子，每个格子都调过学习率。数据最少时最大的模型并不最好（最好的是 N = 176,128）；最优学习率随模型变大而下降（0.1 → 0.001）；不调学习率的代价（最小的模型 +0.293）比放大一档模型的收益（0.192）还大。
+- 第 3 节是我们自己的小实验：4 种宽度 × 3 种数据量 × 2 个种子，每个格子都调过学习率。数据最少时最大的模型并不最好（最好的是 N = 176,128，最大的落后它 0.074；从最小到最大的模型，损失只降 0.056，数据最多时是 0.422）；最优学习率随模型变大而下降（0.1 → 0.001）；不调学习率的代价（最小的模型 +0.293）比放大一档模型的收益（0.192）还大。
 - 第 3 节的拟合 E = 1.41、α = 0.48、β = 0.45（均方残差 0.068）；留出最大的一次运行再预测：预测 1.947、实测 1.847，误差 0.101，比“和上一格一样”的 0.390 好，但没有小于种子间的范围（0.292）：这个网格只能说明方法，说不上结论。
 - 第 4 节：已知真值的合成数据上，系数（A、B、β）比它们合出的预测不确定得多（B 的 10–90% 区间半宽是真值的 232%，外推损失只有 1.8%）；按实测的噪声，拟合出的最优规模多付的损失只有 0.0009（中位数）；噪声放大十倍后，系数完全失控，中位数是 0.054，最差的十分之一在 0.251 以上，已经超过砍掉九成算力的代价（0.109）。比较预测，不要比较系数。
 
@@ -104,7 +104,8 @@ uv run python labs/pretraining/scaling-laws/run.py --quick    # 缩小规模的�
   seed-to-seed range over the 12 cells: median 0.029, largest 0.292 nats
   [ok] more tokens always help: at every size the loss falls with D
   [ok] with the most data every size step helps: loss falls with N
-  [ok] with the fewest tokens (64 steps) the biggest model is not the best: it cannot use its capacity  (best at 32,768 tokens: N = 176,128)
+  [ok] a bigger model buys much less when data is scarce: from the smallest to the biggest size the loss falls less with the fewest tokens than with the most  (0.056 nats at 32,768 tokens against 0.422 at 524,288)
+  [ok] with the fewest tokens (64 steps) the biggest model has no clear lead: it cannot use its capacity  (best at 32,768 tokens: N = 176,128; the biggest trails by 0.074)
   [ok] the best learning rate falls with model size  (0.1 for N = 12,288, 0.001 for N = 884,736)
 
   what an untuned learning rate costs (3e-3 for every size, 131,072 tokens):
@@ -151,7 +152,7 @@ uv run python labs/pretraining/scaling-laws/run.py --quick    # 缩小规模的�
   with ten times the noise the median penalty is 0.054 and the worst tenth lose 0.251 or more; for scale, a tenfold cut in the compute budget costs 0.109
   so a fitted 'alpha = 0.34' deserves less trust than the curve it came from; compare predictions, not coefficients
 
-All checks passed. (136.4s)
+All checks passed. (150.2s)
 ```
 
 </details>

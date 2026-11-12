@@ -112,7 +112,8 @@ uv run python labs/evaluation/llm-evaluation/run.py --quick    # 缩小规模的
   The clean subset scores below the full benchmark, so the check does notice the
   contamination. But it is still 52 to 104 times above guessing: the paraphrased leak is in there,
   labelled clean. Here we know the guessing rate; on a real benchmark you do not.
-  [ok] the 'clean' subset scores below the full benchmark, yet at least 10 times above guessing  (5.2%, 10.4%)
+  [ok] the 'clean' subset scores below the full benchmark: the check notices the contamination  (5.2% against 35.4%, 10.4% against 40.3%)
+  [ok] ...yet it is at least 10 times above guessing (the paraphrased leak is in it)  (5.2%, 10.4%)
 
 ## 6. The pattern of the scores: where a leak is fragile
   Exact match on the verbatim-leaked questions, asked in different formats:
@@ -130,7 +131,7 @@ uv run python labs/evaluation/llm-evaluation/run.py --quick    # 缩小规模的
   new prefix: it keys on what comes right before the answer. Format sensitivity is an
   indirect sign, and a probe has to touch the right place to show it.
 
-All checks passed. (143.5s)
+All checks passed. (163.9s)
 ```
 
 </details>

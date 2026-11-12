@@ -382,8 +382,7 @@ All checks passed. (0.1s)
   [ok] a one-ticket improvement on 12 is far below what 12 tickets can resolve  (81 to 244 tickets)
 
 ## 6. The page's experiments, rerun on Qwen/Qwen2.5-1.5B-Instruct (float32, CPU, greedy)
-W1112 03:38:04.502000 51407 torch/distributed/elastic/multiprocessing/redirects.py:35] NOTE: Redirects are currently not supported in MacOs.
-  loaded in 2s
+  loaded in 5s
   [ok] the tokenizer's template gives the text of section 1
   [ok] token counts with and without a system message  ((33, 40), page (33, 40))
   prefix, in Qwen tokens: rules first: request 163, shared 147; ticket first: request 179, shared 24
@@ -413,7 +412,7 @@ W1112 03:38:04.502000 51407 torch/distributed/elastic/multiprocessing/redirects.
   CoT test: valid 0/12, label 12/12, tokens 52
   [ok] CoT triage on test  (page (0, 12, 0, 52))
 
-All checks passed. (672.8s)
+All checks passed. (741.9s)
 ```
 
 </details>

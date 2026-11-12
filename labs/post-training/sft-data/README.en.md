@@ -197,7 +197,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   so it dominates the loss and the 300 steps. On the page's 0.5B model the same switch moved
   accuracy by 1.3 points (85.8% to 84.5%).
 
-All checks passed. (206.1s)
+All checks passed. (266.3s)
 ```
 
 </details>

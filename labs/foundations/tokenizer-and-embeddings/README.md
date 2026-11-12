@@ -68,7 +68,7 @@ uv run python labs/foundations/tokenizer-and-embeddings/run.py --quick    # 缩�
   chunks: ['Hello', ',', ' world', '!', ' It', "'s", ' 12345678', '.']
   trained 768 merges on 300,000 characters in 5.8s
   first merges: [' t', 'he', 'ou', ' a', ' s', ' w', 'in', ' m']
-  longest tokens: [' Buckingham', ' Servingman', 'CORIOLANUS', 'BUCKINGHAM', ' ELIZABETH']
+  longest tokens: [' Buckingham', ' Servingman', ' ELIZABETH', 'BUCKINGHAM', 'CORIOLANUS']
   [ok] encode -> decode is lossless for any string, including emoji and CJK
   'Hello' -> [b'H', b'ell', b'o']     ' Hello' -> [b' H', b'ell', b'o']
   '你好' -> 6 tokens for 6 bytes
@@ -113,7 +113,7 @@ uv run python labs/foundations/tokenizer-and-embeddings/run.py --quick    # 缩�
   our byte-level GPT        858,880       32,768       1   3.8%
   [ok] matches the course page: 31.0%, 27.6%, 13.1%
 
-All checks passed. (6.8s)
+All checks passed. (7.2s)
 ```
 
 </details>

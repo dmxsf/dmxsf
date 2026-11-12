@@ -217,7 +217,7 @@ uv run python labs/start/what-is-an-llm/run.py --quick    # 缩小规模的冒�
 
   List them all: dmxsf list. Run one: dmxsf run kv-cache --quick. A route: dmxsf roadmap engineer.
 
-All checks passed. (3.4s)
+All checks passed. (3.2s)
 ```
 
 </details>

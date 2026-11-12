@@ -344,7 +344,7 @@ All checks passed. (0.0s)
     问题：借款最多能借多少，什么时候要还？
   [ok] the chunks that fit the budget are the page's: the right one first, then one that has nothing to do with it  (['exp-advance', 'buy-threshold'])
 
-All checks passed. (5.4s)
+All checks passed. (5.1s)
 ```
 
 </details>

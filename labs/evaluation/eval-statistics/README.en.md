@@ -137,7 +137,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   in the way the formulas assume (neighbouring speeches share characters and style). The
   intervals are best read as lower bounds on the real uncertainty.
 
-All checks passed. (1.4s)
+All checks passed. (1.2s)
 ```
 
 </details>

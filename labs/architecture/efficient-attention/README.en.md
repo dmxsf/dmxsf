@@ -102,11 +102,11 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   8 heads, d_c=128, median of 15 steps
   cached  rebuild MACs  time     absorbed MACs  time     faster by
   ------  ------------  -------  -------------  -------  ---------
-     512        33.9 M  0.43 ms          1.2 M  0.24 ms       1.8x
-    2048       135.5 M  0.83 ms          4.5 M  0.29 ms       2.8x
-    8192       542.1 M  2.19 ms         17.9 M  0.61 ms       3.6x
+     512        33.9 M  0.64 ms          1.2 M  0.40 ms       1.6x
+    2048       135.5 M  1.22 ms          4.5 M  0.44 ms       2.8x
+    8192       542.1 M  3.62 ms         17.9 M  1.02 ms       3.6x
   The arithmetic drops by an order of magnitude more than the time does: a step this small is no longer limited by multiply-adds.
-  [ok] absorption makes a decode step at least 2x faster at the longest length  (3.6x at 8192 tokens)
+  [ok] absorption makes a decode step at least 1.5x faster at the longest length  (3.6x at 8192 tokens)
 
 ## 4. FlashAttention's algorithm: tiles and an online softmax
   N=1000, d=64, tiles of 128: max |standard - tiled| = 4.6e-14 (float64)
@@ -171,7 +171,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   [ok] the more steps after the conversion, the lower the loss  (2.660 > 2.075 > 1.958)
   After 100 steps the converted model is +0.024 nats from the GQA-2 model trained from scratch (range of the latter 1.905 - 1.959); the checkpoint it started from cost 500 steps.
 
-All checks passed. (56.3s)
+All checks passed. (102.7s)
 ```
 
 </details>

@@ -27,20 +27,21 @@ Unit tests: `uv run pytest tests/test_pretraining_train.py tests/test_data.py`
 ## What to look for
 
 - Section 1: with N(0, 0.02^2) initialisation the first loss is 8.01 bits, i.e. log2 256; with N(0, 1) and tied embeddings it is 47.84 bits (the page's 0.86M model starts at 108.0). A single batch can be memorised (7.86 -> 0.02 bits), so the code, the loss and the optimizer work.
-- Section 2: in the monitoring table the validation loss falls at every evaluation (3.89 -> 3.24) and clipping is a start-up event: 24% of the first 100 steps are clipped against 5.0% afterwards.
+- Section 2: in the monitoring table the validation loss falls at every evaluation (3.89 -> 3.24) and clipping is a start-up event: 24% of the first 100 steps are clipped against 5.0% afterwards (an observation, not a check: with seed 2 it is the other way round, the gradient norm climbs to 1.4 in the second half and nearly every step is clipped, as with the lower peak learning rate of the page's exercise 6, and training is fine).
 - Section 3: the data mix decides what the model is good at: a 90% share of prose beats a 10% share by 0.52 bits on prose, and code by 0.61 bits; the mean over both domains hardly moves (3.014 / 3.238 / 2.965), so one number would have hidden the trade.
-- Section 4: with weights, optimizer state and step restored, the resumed run equals the uninterrupted one bit for bit; forget any one of them and the weights differ (by 0.22, 0.64, 0.44) while the validation score cannot tell (largest shift 0.133, a change of seed alone gives 0.131); the two runs that restart the learning rate even score better: when under-trained, the score cannot tell a bug from a benefit.
-- Section 5: 4.1 KB of held-out code in the training data: the leaked chunk falls from 3.582 to 2.267 bits (37% lower) while the rest of the held-out code does not move (2.908 -> 2.964); the page's larger leak (60 KB into a 0.86M model) lifted sibling files of the same package too, which does not happen at this small size.
+- Section 4: with weights, optimizer state and step restored, the resumed run equals the uninterrupted one bit for bit; forget any one of them and the weights differ (by 0.22, 0.64, 0.44) while the validation score does not flag them: none is worse than the correct resume (worst +0.005 bits, a change of seed alone gives 0.131); the two runs that restart the learning rate even score better (-0.132 and -0.133): when under-trained, the score cannot tell a bug from a benefit.
+- Section 5: 4.1 KB of held-out code in the training data: the leaked chunk falls from 3.582 to 2.267 bits (37% lower) while on this seed the rest of the held-out code hardly moves (2.908 -> 2.964); the page's larger leak (60 KB into a 0.86M model) lifted sibling files of the same package too, which is not seen at this small size, and cannot be ruled out either (see the note below).
 
 ## Exercises
 
 Run again after a change: the checks that compare with the page's numbers turn into `[FAIL]`; that is expected, read how the numbers themselves move.
 
-1. Add `(0.99, 0)` to the loop `for share, seed in [(0.9, 0), (0.1, 0), (0.5, SEEDS[-1])]` of section 3: how much worse is prose when it is only 1% of the data than at 50%?
+1. Add `(0.99, S0)` to the loop `for share, seed in [(0.9, S0), (0.1, S0), (0.5, SEEDS[-1])]` of section 3: how much worse is prose when it is only 1% of the data than at 50%?
 2. Change the leak of section 5 from 4096 bytes to 40 KB: does the rest of the held-out code start to improve?
 
 ## Notes
 
+- Two statements about the size of an effect are observations that change with the seed and the machine, and print `[differs]` when they fail: 'clipping is a start-up event' of section 2 (with seed 2 it is the other way round) and 'the part of the held-out code that did not leak is unaffected' of section 5. The latter moved against the control by +0.06, +0.34, +0.28, +0.30 and -0.41 bits per byte over five runs (seeds 0, 1, 2 on an Apple M2 Max; Python 3.10 and 3.12 on a GitHub Linux runner): no fixed direction, while the baseline and the control, which saw no leak, differ by 0.04 to 0.32 bits between themselves in four of them. A 4 KB leak shows no spillover at this size and does not prove there is none: one training run cannot tell spillover from training noise.
 - This lab uses the source of the running interpreter's standard library as its code corpus, so the numbers that involve it differ a little between Python versions.
 
 ## Output
@@ -81,7 +82,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   [ok] the loss starts at log2(256) = 8 bits  (7.93)
   [ok] validation loss falls at every evaluation (prose + code)  (3.89 > 3.69 > 3.55 > 3.44 > 3.32 > 3.24)
   [ok] no overfitting yet: the validation mean is close to the training loss  (validation mean 3.24, training 3.20 bits)
-  [ok] clipping is a start-up event: clipped steps are more frequent early than later  (24% against 5.0%)
+  [ok] clipping is a start-up event: the largest gradient norm comes in the first 100 steps and clipped steps are more frequent early than later  (peak at step 21; 24% of the first 100 steps against 5.0% of the rest)
 
 ## 3. Experiment 1: the data mix decides what the model is good at
   prose : code  seed  prose bpb  code bpb  mean 
@@ -104,7 +105,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
                 data right, lr restarts      3.178     3.030  3.104            4.42e-01                 3.514
   [ok] with weights, optimizer state and step restored, the resumed run equals the uninterrupted one bit for bit  (largest weight difference 0.0)
   [ok] each of the other three ends with different weights  (0.22, 0.64, 0.44)
-  [ok] ...and the validation score cannot tell them apart: no shift is twice a change of seed  (largest shift 0.133 bits for the three, 0.131 between seeds 0 and 1)
+  [ok] ...and the validation score does not flag them: none is worse than the correct resume by more than a change of seed  (worst +0.005 bits for the three, 0.131 between seeds 0 and 1)
   the runs that restart the learning rate even score *better* than the correct resume (forgot the step (data and lr restart): -0.132; data right, lr restarts: -0.133): at this step the model is still under-trained, so a higher learning rate helps.
   The score cannot tell a bug from a benefit.
 
@@ -118,7 +119,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   [ok] the leaked text scores far better than the same model without the leak  (3.582 -> 2.267 bits: 37% lower, and the model did not become 30% better at code)
   [ok] the rest of the held-out code stays where the control had it (no spillover at this size)  (2.908 -> 2.964; the page's larger leak (60 KB into 0.86M parameters) lifted sibling files in the same package)
 
-All checks passed. (164.0s)
+All checks passed. (209.0s)
 ```
 
 </details>

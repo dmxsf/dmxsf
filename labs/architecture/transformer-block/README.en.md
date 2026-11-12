@@ -112,7 +112,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   [ok] swapping learned positions for RoPE is a clear gain  (0.314 nats)
   [ok] grouped-query attention halves the KV cache without a clear loss  (-0.020 nats)
 
-All checks passed. (165.5s)
+All checks passed. (302.4s)
 ```
 
 </details>

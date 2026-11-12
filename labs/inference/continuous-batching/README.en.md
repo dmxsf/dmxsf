@@ -27,12 +27,12 @@ Unit tests: `uv run pytest tests/test_inference_serving.py`
 
 ## What to look for
 
-- Section 1: why batching pays: the H100's roofline is 295 FLOP per byte; Qwen2.5-7B reads 224 MiB of KV for a 4,096-token sequence against 14.2 GiB of weights, so 65 sequences read as much KV as weights. On this CPU one decode step with 16 sequences gives 11.4 times the tokens per second of one (each request runs at 0.71 of its solo speed); five sequences of different lengths decoded in one batch match each decoded alone (largest logit difference 1.5e-05).
+- Section 1: why batching pays: the H100's roofline is 295 FLOP per byte; Qwen2.5-7B reads 224 MiB of KV for a 4,096-token sequence against 14.2 GiB of weights, so 65 sequences read as much KV as weights. On this CPU one decode step with 16 sequences gives 11.6 times the tokens per second of one (each request runs at 0.72 of its solo speed); five sequences of different lengths decoded in one batch match each decoded alone (largest logit difference 1.5e-05).
 - Section 2: the scheduler on paper (exact): the page's 48 requests take 52.5 s and 88.6 tokens/s under continuous batching, 68.6 s and 67.9 tokens/s under static batching. Where the time goes: prefill takes 16.5 s in both; decoding reaches 81% of the ideal when continuous and 56% when static (each batch waits for outputs of 218, 453 and 192 tokens). The bullets under the page's widget are recomputed in the same simulator: with equal outputs continuous batching has no edge, with batch-independent step times it saves 25%.
-- Section 3: the same loop on a real model: given only this machine's own step table and prefill time, the simulator predicts both makespans within 15% (this run: continuous -3.6%, static -4.2%); every request gets exactly the bytes it would get alone; the makespan of continuous batching is 0.67 of static and the mean completion 0.65; counted in steps alone: 95 against 170, 44% fewer, which comes from the schedule and not the hardware.
+- Section 3: the same loop on a real model: given only this machine's own step table and prefill time, the simulator predicts both makespans within 25% (this run: continuous -0.8%, static -1.5%; up to 11% on a GitHub Linux runner); every request gets exactly the bytes it would get alone; the makespan of continuous batching is 0.68 of static and the mean completion 0.65; counted in steps alone: 95 against 170, 44% fewer, which comes from the schedule and not the hardware.
 - Section 4: the KV memory ledger: Qwen2.5-7B takes 57,344 bytes per token; on an 80 GiB card, reserving 8,192 tokens per sequence fits 123 sequences, paging in 16-token blocks with 1,000 tokens each fits 999. The page's 48 requests hold 10,800 tokens: reserving the maximum uses 2.7% of the memory, paging 97.0% (7.0 tokens wasted per request, never more than 15). A block table gathers blocks that are not next to each other into the same attention (bit for bit), and parallel sampling shares the prompt's blocks (11 blocks against 20).
-- Section 5: the prefix cache: with the document first, the first request computes 112 bytes and the next ones reuse 96 and compute 16, prefilling 2.2 times faster (1.44 against 3.21 ms); with 8 changing bytes in front nothing is ever reused; reusing the cache does not change the logits (largest difference 0).
-- Section 6: what a request costs: end-to-end = queue + prefill + (N - 1) x TPOT, the formula within 10% of the measurement; prefill is more than 10 times faster per byte than decoding one sequence. With identical code the benchmark's B / A ratio strayed by up to 10.9% from 1 over a few trials: a difference between two real configurations smaller than that is not one this benchmark can see; Little's law L = lambda x W holds in the simulated queue (relative gap 0.01%).
+- Section 5: the prefix cache: with the document first, the first request computes 112 bytes and the next ones reuse 96 and compute 16, prefilling 2.1 times faster (1.19 against 2.45 ms); with 8 changing bytes in front nothing is ever reused; reusing the cache does not change the logits (largest difference 0).
+- Section 6: what a request costs: end-to-end = queue + prefill + (N - 1) x TPOT, the formula within 10% of the measurement; prefill is more than 10 times faster per byte than decoding one sequence. With identical code the benchmark's B / A ratio strayed by up to 5.1% from 1 over a few trials: a difference between two real configurations smaller than that is not one this benchmark can see; Little's law L = lambda x W holds in the simulated queue (relative gap 0.01%).
 
 ## Exercises
 
@@ -70,17 +70,17 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   one decode step on the CPU, 64 tokens of context per sequence (median of 28):
   batch  step ms  total tok/s  per-request tok/s  total vs batch 1
   -----  -------  -----------  -----------------  ----------------
-      1     1.25          800                800              1.0x
-      2     1.33        1,505                753              1.9x
-      3     1.39        2,163                721              2.7x
-      4     1.41        2,838                710              3.5x
-      6     1.46        4,099                683              5.1x
-      8     1.70        4,714                589              5.9x
-     12     1.62        7,393                616              9.2x
-     16     1.76        9,087                568             11.4x
-     24     2.45        9,780                407             12.2x
-     32     2.85       11,213                350             14.0x
-  [ok] batching pays on this machine too: 16 sequences give more than 3x the tokens per second of one  (11.4x the total throughput; each request runs at 0.71 of its solo speed)
+      1     1.03          969                969              1.0x
+      2     1.12        1,790                895              1.8x
+      3     1.13        2,657                886              2.7x
+      4     1.16        3,443                861              3.6x
+      6     1.21        4,948                825              5.1x
+      8     1.24        6,435                804              6.6x
+     12     1.34        8,962                747              9.2x
+     16     1.43       11,209                701             11.6x
+     24     1.86       12,879                537             13.3x
+     32     2.03       15,791                493             16.3x
+  [ok] batching pays on this machine too: 16 sequences give more than 3x the tokens per second of one  (11.6x the total throughput; each request runs at 0.72 of its solo speed)
   [ok] five sequences of 5, 13, 29, 41 and 60 tokens decoded in one batch match each decoded alone  (largest logit difference 1.5e-05; same next byte in 50 of 50 steps)
 
 ## 2. The page's scheduler on paper: static against continuous batching (exact)
@@ -115,16 +115,16 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
 ## 3. The same loop on a real model
   the page's workload scaled to this model's 128 positions: 48 requests, 16-byte prompts, outputs of 3 to 91 bytes (931 in all),
   16 slots, greedy decoding, median of 3 alternating runs. The simulation uses this machine's own step table (section 1) and
-  its own prefill time (1.09 ms for 16 bytes):
+  its own prefill time (0.99 ms for 16 bytes):
   mode                   makespan ms  bytes/s  mean done ms  p90 done ms  mean TTFT ms
   ----------  ---------  -----------  -------  ------------  -----------  ------------
-  continuous       real          207    4,495           102          163            54
-  continuous  simulated          200    4,662            97          155              
-      static       real          310    3,007           156          280           116
-      static  simulated          297    3,139           149          266              
+  continuous       real          168    5,527            82          132            44
+  continuous  simulated          167    5,572            83          130              
+      static       real          249    3,739           126          224            94
+      static  simulated          245    3,794           124          220              
   [ok] every request gets exactly the bytes it would get decoded alone, in both schedules and every run  (48 requests, 3 runs each)
-  [ok] continuous batching finishes the batch of requests sooner than static batching, and their average sooner  (makespan 0.67 of static, mean completion 0.65 of static)
-  [ok] the simulator, fed only the measured step table and prefill time, predicts both makespans within 15%  (continuous: -3.6%, static: -4.2%)
+  [ok] continuous batching finishes the batch of requests sooner than static batching, and their average sooner  (makespan 0.68 of static, mean completion 0.65 of static)
+  [ok] the simulator, fed only the measured step table and prefill time, predicts both makespans within 25%  (continuous: -0.8%, static: -1.5%)
   counted in steps alone, with no clock involved: continuous 95 decode steps, static 170, so 44% fewer; that saving comes from the schedule, not from the hardware.
 
 ## 4. KV memory: the ledger, reserving against paging, the block table
@@ -164,42 +164,42 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   B puts 8 bytes that change every time in front of the document. The cache starts empty in each case; times are the median of 9 repetitions:
   case                      request  reused  computed  prefill ms
   ------------------------  -------  ------  --------  ----------
-     A doc first, cache on        1       0       112        2.99
-     A doc first, cache on        2      96        16        1.42
-     A doc first, cache on        3      96        16        1.46
-     A doc first, cache on        4      96        16        1.43
-  B header first, cache on        1       0       120        3.95
-  B header first, cache on        2       0       120        3.69
-  B header first, cache on        3       0       120        3.55
-  B header first, cache on        4       0       120        3.72
-    C doc first, cache off        1       0       112        3.40
-    C doc first, cache off        2       0       112        3.08
-    C doc first, cache off        3       0       112        3.23
-    C doc first, cache off        4       0       112        3.11
+     A doc first, cache on        1       0       112        2.58
+     A doc first, cache on        2      96        16        1.22
+     A doc first, cache on        3      96        16        1.18
+     A doc first, cache on        4      96        16        1.18
+  B header first, cache on        1       0       120        2.66
+  B header first, cache on        2       0       120        2.68
+  B header first, cache on        3       0       120        2.65
+  B header first, cache on        4       0       120        2.65
+    C doc first, cache off        1       0       112        2.57
+    C doc first, cache off        2       0       112        2.41
+    C doc first, cache off        3       0       112        2.38
+    C doc first, cache off        4       0       112        2.43
   [ok] A: the first request computes all 112 bytes, the next three reuse the 96 of the document and compute 16; B: nothing is ever reused; C: nothing is reused  (A [(0, 112), (96, 16), (96, 16), (96, 16)], B (0, 120))
   [ok] reusing cached keys and values does not change the logits  (largest difference from a full prefill 0.0e+00 over 12 requests)
-  [ok] a request that hits the cache prefills faster than one that does not  (1.44 ms against 3.21 ms (2.2x); 16 of 112 bytes computed, not 1/7 of the time: fixed costs per forward pass)
+  [ok] a request that hits the cache prefills faster than one that does not  (1.19 ms against 2.45 ms (2.1x); 16 of 112 bytes computed, not 1/7 of the time: fixed costs per forward pass)
   [ok] the page's exercise: with 16-token blocks, a second request with the same 1,000-token system prompt reuses 992 tokens; one with a timestamp in front reuses 0; another tenant's salt reuses 0  (992, 0, 0)
 
 ## 6. What a request costs: TTFT, TPOT, the two regimes, capacity
-  one slot, four identical requests at t = 0 (16-byte prompt, 40 new bytes). Alone, one request has a prefill of 1.34 ms and a TPOT of 1.11 ms:
+  one slot, four identical requests at t = 0 (16-byte prompt, 40 new bytes). Alone, one request has a prefill of 1.10 ms and a TPOT of 0.98 ms:
   request  queue ms  prefill ms  TTFT ms  TPOT ms  end-to-end ms  queue + prefill + (N-1) TPOT, ms
   -------  --------  ----------  -------  -------  -------------  --------------------------------
-        1       0.0        1.26      1.3     1.17           46.8                              44.6
-        2      46.8        1.41     48.2     1.10           90.8                              91.3
-        3      90.8        1.36     92.2     1.13          136.6                             135.4
-        4     136.6        1.28    137.8     1.15          182.6                             181.1
-  [ok] end-to-end = queue + prefill + (N - 1) x TPOT: with prefill and TPOT measured alone, the formula is within 10% for all four requests  (-4.7%, +0.6%, -0.8%, -0.8%)
+        1       0.0        1.10      1.1     0.99           39.5                              39.5
+        2      39.5        1.00     40.5     1.00           78.3                              79.0
+        3      78.3        1.06     79.3     0.99          118.2                             117.8
+        4     118.2        1.09    119.3     1.00          158.1                             157.7
+  [ok] end-to-end = queue + prefill + (N - 1) x TPOT: with prefill and TPOT measured alone, the formula is within 10% for all four requests  (-0.1%, +1.0%, -0.3%, -0.3%)
 
-  prefill speed against prompt length (decoding one sequence runs at 800 bytes/s):
+  prefill speed against prompt length (decoding one sequence runs at 969 bytes/s):
   prompt bytes  prefill ms  bytes/s
   ------------  ----------  -------
-             1        0.78    1,279
-             4        0.89    4,497
-            16        1.08   14,825
-            64        2.10   30,536
-           120        3.22   37,243
-  [ok] prefill, which handles every prompt position in one pass, is more than 10x faster per byte than decoding one sequence, and gets faster per byte as the prompt grows  (37,243 against 800 bytes/s)
+             1        0.62    1,603
+             4        0.77    5,202
+            16        1.04   15,400
+            64        1.83   34,964
+           120        2.90   41,361
+  [ok] prefill, which handles every prompt position in one pass, is more than 10x faster per byte than decoding one sequence, and gets faster per byte as the prompt grows  (41,361 against 969 bytes/s)
   the page's arithmetic                                        value                          
   -----------------------------------------------------------  -------------------------------
                     M2 Max decode ceiling, 400 GB/s / 4.68 GB                      85 tokens/s
@@ -213,10 +213,10 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   depending on the order they run in?
   order            B / A in each trial            range         
   ---------------  -----------------------------  --------------
-  A first, then B  0.998 0.997 0.909 0.891 0.995  0.891 to 0.998
-  A, B, A, B, ...  0.996 1.001 0.999 0.989 0.989  0.989 to 1.001
-  alternating gave the narrower range here, as the page advises.
-  across all trials B / A strayed up to 10.9% from 1 with identical code: a difference between two real configurations
+  A first, then B  0.975 1.025 1.008 0.949 0.982  0.949 to 1.025
+  A, B, A, B, ...  1.002 1.046 0.957 0.998 1.002  0.957 to 1.046
+  alternating did not give the narrower range on this run: the machine drifted little, so order mattered little.
+  across all trials B / A strayed up to 5.1% from 1 with identical code: a difference between two real configurations
   smaller than that is not a difference this benchmark can see.
 
   Little's law in a simulated queue (Poisson arrivals, exponential service, 4 servers):
@@ -232,7 +232,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   requests are in flight and 3 machines are needed; one machine sustains 0.33 requests/s.
   [ok] 4 requests per machine, W = 12.0 s, L = 9.6, 3 machines, 0.33 requests/s per machine  (4, 11.97, 9.58, 3)
 
-All checks passed. (11.9s)
+All checks passed. (10.5s)
 ```
 
 </details>

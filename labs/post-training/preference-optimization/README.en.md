@@ -113,7 +113,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   lr 0.0001        1.00           +2.15            -23.07     91.0%          93%               0.71       2.22       4.12
   lr 0.0003        1.00          -18.05            -90.19      7.0%           7%               0.01       3.84       4.80
   (the reference: accuracy 58.0%, valid 100%, mass on the 12 labels 0.97, 3.80 bits/byte)
-  [ok] a 3x smaller learning rate moves the policy much less (KL to the reference)  (KL 0.85 at 1e-5 vs 2.05 at 3e-5)
+  [ok] a 3x smaller learning rate moves the policy less (KL to the reference)  (KL 0.85 at 1e-5 vs 2.05 at 3e-5)
   [ok] too large: the chosen answers' log-probability FALLS although the reward accuracy is 100%  (chosen -18.1 nats, rejected -90.2, reward acc 1.00)
   [ok] ...and the model stops answering in the format (valid labels collapse)  (valid 7%, mass on the twelve labels 0.010)
 
@@ -168,7 +168,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   In a real run the true reward is not observable. That is why the page recommends a KL
   penalty, early stopping on a held-out gold signal, and refreshing the reward model.
 
-All checks passed. (358.7s)
+All checks passed. (290.6s)
 ```
 
 </details>

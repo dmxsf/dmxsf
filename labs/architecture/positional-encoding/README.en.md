@@ -102,7 +102,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   [ok] PI without fine-tuning damages even the positions it was trained on (+0.5 nats)
   [ok] NTK-aware and YaRN stretch RoPE 4x with no training: far positions improve by 0.5+ nats
 
-All checks passed. (125.6s)
+All checks passed. (156.2s)
 ```
 
 </details>

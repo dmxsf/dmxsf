@@ -66,7 +66,7 @@ report.say(
     f"in {time.perf_counter() - t0:.1f}s"
 )
 first = [tok.vocab[256 + i].decode("utf-8", "replace") for i in range(8)]
-longest = sorted({t for t in tok.vocab.values() if len(t) > 1}, key=len, reverse=True)[:5]
+longest = sorted({t for t in tok.vocab.values() if len(t) > 1}, key=lambda t: (-len(t), t))[:5]
 report.say(f"  first merges: {first}")
 report.say(f"  longest tokens: {[t.decode('utf-8', 'replace') for t in longest]}")
 tricky = [

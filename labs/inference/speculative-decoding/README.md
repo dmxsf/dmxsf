@@ -30,8 +30,8 @@ uv run python labs/inference/speculative-decoding/run.py --quick    # 缩小规�
 - 第 1 节：页面里 A100 的账（精确）：读一遍 14 GB 权重 6.87 ms，算一个 token 0.045 ms，算五个位置 0.22 ms，153 FLOP/字节才能喂饱芯片：多验证几个位置几乎是免费的，直到批大小接近 150。
 - 第 2 节：四个 token 的分布上，拒绝后从残差分布重新采样恰好还原目标分布 p；从 p 本身重采样则不行（token 0 只有 0.375，应是 0.50）；接受率 Σmin(p, q) = 0.75，模拟的输出频率 [0.5, 0.25, 0.149, 0.1]，每轮 3.054 个 token 对公式的 3.051。
 - 第 3 节：Leviathan 等人的公式（定理 3.8）与小组件的数字：α = 0.8、c = 0.05 时，γ = 4 加速 2.80 倍、最佳的 γ = 8 是 3.09 倍、γ = 16 回落到 2.72 倍；草稿贵 6 倍（c = 0.3）最佳 γ 缩到 3、加速降到 1.55 倍；α = 0.3、γ = 4 是 0.65 倍，比不用还慢。
-- 第 4 节：真实的草稿模型（124,672 个参数）与目标模型（842,496 个）：一个草稿步是目标步成本的 0.48（c = 0.48，小模型在 CPU 上受每层开销限制，不同于 A100 上受内存带宽限制）；贪心的投机解码与目标模型单独解码逐字节相同（120 次运行全部一致）；每个 γ 需要的目标模型前向次数都少于普通解码（γ = 4 时每字节 0.33 次），公式用实测的 α 预测每轮字节数误差在 1.5% 以内。
-- 第 4 节的时钟列：这次完整运行里没有一个 γ 比不用投机解码快（0.73 倍到 0.90 倍，最好的是 γ = 2 与 γ = 4 的 0.90 倍），而公式（已经把草稿的成本 c = 0.48 算进去）用实测的 α 预测 γ = 2 能到 1.20 倍；剩下的差距在公式没有算的地方：循环自己的开销（采样、缓存裁剪、记账）。第一个采样字节的频率与目标模型自己的分布吻合（卡方 p = 0.665）。
+- 第 4 节：真实的草稿模型（124,672 个参数）与目标模型（842,496 个）：一个草稿步是目标步成本的 0.41（c = 0.41，小模型在 CPU 上受每层开销限制，不同于 A100 上受内存带宽限制）；贪心的投机解码与目标模型单独解码逐字节相同（120 次运行全部一致）；每个 γ 需要的目标模型前向次数都少于普通解码（γ = 4 时每字节 0.33 次），公式用实测的 α 预测每轮字节数误差在 1.5% 以内。
+- 第 4 节的时钟列：这次完整运行里没有一个 γ 比不用投机解码快（0.68 倍到 0.88 倍，最好的是 γ = 4 的 0.88 倍），而公式（已经把草稿的成本 c = 0.41 算进去）用实测的 α 预测 γ = 2 能到 1.29 倍；剩下的差距在公式没有算的地方：循环自己的开销（采样、缓存裁剪、记账）。第一个采样字节的频率与目标模型自己的分布吻合（卡方 p = 0.665）。
 - 第 5 节：什么时候不划算：接受率低、草稿贵，什么都赚不到（α = 0.3、c = 0.5 时连 γ = 1 也亏，0.87 倍）；第三个条件是大批量，见第 1 节的账。
 
 ## 练习
@@ -43,7 +43,7 @@ uv run python labs/inference/speculative-decoding/run.py --quick    # 缩小规�
 
 ## 注意
 
-- 时钟列（“wall-clock speedup”）每次运行都会摆动，机器的负载与温度都有影响：同一台机器上，一次完整运行里 γ = 2 达到 1.11 倍（不用投机解码时每字节 0.92 ms），这里附的这次是 0.90 倍（每字节 0.63 ms），每个 γ 都比不用慢。读“目标模型前向次数”那一列和公式，别读时钟。
+- 时钟列（“wall-clock speedup”）每次运行都会摆动，机器的负载与温度都有影响：同一台机器上，一次完整运行里 γ = 2 达到 1.11 倍（不用投机解码时每字节 0.92 ms），这里附的这次是 0.83 倍（每字节 0.63 ms），每个 γ 都比不用慢。读“目标模型前向次数”那一列和公式，别读时钟。
 
 ## 输出
 
@@ -108,12 +108,12 @@ uv run python labs/inference/speculative-decoding/run.py --quick    # 缩小规�
   time of one forward pass on the CPU with 64 bytes already cached, by number of new positions:
   new positions      1      2      3      5      9    
   -----------------  -----  -----  -----  -----  -----
-         target, ms   0.68   0.81   0.85   0.87   0.90
-    vs one position  1.00x  1.19x  1.24x  1.27x  1.31x
-          draft, ms   0.33   0.36   0.36   0.35   0.42
-  one draft step costs 0.48 of a target step here (c = 0.48); a 0.86M model on a CPU is limited
+         target, ms   0.95   1.13   1.07   1.04   1.12
+    vs one position  1.00x  1.18x  1.12x  1.09x  1.17x
+          draft, ms   0.40   0.38   0.41   0.44   0.45
+  one draft step costs 0.41 of a target step here (c = 0.41); a 0.86M model on a CPU is limited
   by per-layer overhead, not by memory bandwidth, so this is a different regime from the A100 ledger.
-  [ok] five positions in one target pass cost well under five single steps  (1.27x one step)
+  [ok] five positions in one target pass cost well under five single steps  (1.09x one step)
 
   on 128 held-out windows (every position, teacher-forced), the chance that a drafted byte is kept,
   beta = sum(min(p, q)), by sampling temperature:
@@ -126,16 +126,16 @@ uv run python labs/inference/speculative-decoding/run.py --quick    # 缩小规�
   [ok] greedy speculative decoding writes the same 64 bytes as the target alone, for every gamma and prompt  (120 of 120 runs)
 
   sampling at temperature 1 from 24 prompts, 64 new bytes each. Plain decoding: 0.63 ms per byte.
-  gamma  alpha measured  drafts kept  bytes per round  formula at that alpha  target passes per byte  fewer target passes  formula speedup (c = 0.48)  wall-clock speedup
+  gamma  alpha measured  drafts kept  bytes per round  formula at that alpha  target passes per byte  fewer target passes  formula speedup (c = 0.41)  wall-clock speedup
   -----  --------------  -----------  ---------------  ---------------------  ----------------------  -------------------  --------------------------  ------------------
-      1           0.771         0.77             1.77                   1.77                   0.583                1.71x                       1.19x               0.79x
-      2           0.766         0.68             2.35                   2.35                   0.446                2.24x                       1.20x               0.90x
-      4           0.779         0.55             3.22                   3.23                   0.333                3.00x                       1.10x               0.90x
-      6           0.797         0.48             3.86                   3.92                   0.282                3.55x                       1.00x               0.83x
-      8           0.791         0.39             4.14                   4.20                   0.270                3.71x                       0.86x               0.73x
+      1           0.771         0.77             1.77                   1.77                   0.583                1.71x                       1.25x               0.80x
+      2           0.766         0.68             2.35                   2.35                   0.446                2.24x                       1.29x               0.83x
+      4           0.779         0.55             3.22                   3.23                   0.333                3.00x                       1.21x               0.88x
+      6           0.797         0.48             3.86                   3.92                   0.282                3.55x                       1.12x               0.79x
+      8           0.791         0.39             4.14                   4.20                   0.270                3.71x                       0.97x               0.68x
   [ok] every gamma needs fewer target passes per byte than plain decoding (which needs one)  (gamma 1: 0.58, gamma 2: 0.45, gamma 4: 0.33, gamma 6: 0.28, gamma 8: 0.27)
-  fastest on the clock: gamma 2 (0.90x); the formula, fed the measured alpha and c, picks gamma 2 (1.20x).
-  no setting beats plain decoding on this machine. With c = 0.48 the formula's best possible speedup at this alpha is 1.21x (gamma 2), before the loop's own work
+  fastest on the clock: gamma 4 (0.88x); the formula, fed the measured alpha and c, picks gamma 2 (1.29x).
+  no setting beats plain decoding on this machine. With c = 0.41 the formula's best possible speedup at this alpha is 1.31x (gamma 2), before the loop's own work
   (sampling, cache cropping, bookkeeping), which the formula leaves out and this lab did not time separately.
   bytes per round against the formula at the measured alpha: -1.5% to -0.0% (the formula assumes every
   position accepts with the same probability; a gap means contexts differ in how easy they are to guess).
@@ -161,7 +161,7 @@ uv run python labs/inference/speculative-decoding/run.py --quick    # 缩小规�
   and the page's third condition, a large batch, is the ledger of section 1: once the batch is near 150
   tokens per weight read the chip is busy, and checking gamma extra positions per sequence costs real time.
 
-All checks passed. (33.6s)
+All checks passed. (35.5s)
 ```
 
 </details>

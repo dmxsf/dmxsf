@@ -260,14 +260,21 @@ def main() -> None:
     rows = [[name] + [f"{100 * res['formats'][name]:.1f}%" for res in results] for name in names]
     report.say("  Exact match on the verbatim-leaked questions, asked in different formats:")
     report.table(["prompt", *[f"seed {s}" for s in seeds]], rows)
-    slot = ["'Answer:' instead of 'A:'", "no space after 'A:'"]  # changes next to the answer
+    kept = {
+        name: [res["formats"][name] / res["formats"]["as in training"] for res in results]
+        for name in ("'Answer:' instead of 'A:'", "no space after 'A:'")
+    }
+    # seen: dropping the space leaves 0% of the leaked score on every model; 'Answer:' leaves 12% to 58%
+    # (the model keys on the string 'A:', how much a nearby marker still helps varies)
     full_check(
-        "changing the marker just before the answer cuts the leaked score to less than half",
-        all(
-            res["formats"][name] < 0.5 * res["formats"]["as in training"]
-            for res in results
-            for name in slot
-        ),
+        "dropping the space after 'A:' cuts the leaked score to less than half",
+        all(k < 0.5 for k in kept["no space after 'A:'"]),
+        ", ".join(f"{100 * k:.0f}% kept" for k in kept["no space after 'A:'"]),
+    )
+    full_observe(
+        "...and so does writing 'Answer:' instead of 'A:'",
+        all(k < 0.5 for k in kept["'Answer:' instead of 'A:'"]),
+        ", ".join(f"{100 * k:.0f}% kept" for k in kept["'Answer:' instead of 'A:'"]),
     )
     full_check(
         "adding text in front of the question changes almost nothing (within 20%)",

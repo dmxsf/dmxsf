@@ -133,7 +133,7 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
   batch size) is about other hardware; this lab cannot show it.
   [ok] batch shape changes the logits by at most float rounding (relative to the logit scale)  (0.0e+00)
 
-All checks passed. (8.5s)
+All checks passed. (7.1s)
 ```
 
 </details>

@@ -171,13 +171,13 @@ The complete runs below were made on an Apple M2 Max (12 cores, CPU only) with P
 ## 8. Memory and speed
   method                trained parameters  weights+grads+Adam (MiB, fp32)  ms per step (this machine)
   --------------------  ------------------  ------------------------------  --------------------------
-      full fine-tuning             842,496                           12.86                          37
-  LoRA r=8, all linear              73,728                            4.34                          42
+      full fine-tuning             842,496                           12.86                          55
+  LoRA r=8, all linear              73,728                            4.34                          58
   static memory = one frozen copy of the weights, plus four copies (weights, gradient, two Adam
   moments) of whatever is trained. Activations come on top and shrink the gap, as on the page.
   [ok] LoRA trains a small fraction of the parameters and needs a fraction of the static memory  (8.8% of the parameters)
 
-All checks passed. (224.1s)
+All checks passed. (298.3s)
 ```
 
 </details>

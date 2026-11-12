@@ -99,7 +99,7 @@ uv run python labs/foundations/next-token-prediction/run.py --quick    # 缩小�
   after 'q' the model expects  'u': 1.00
   after 't' the model expects  'h': 0.34, ' ': 0.25, 'o': 0.09
 
-All checks passed. (3.0s)
+All checks passed. (3.1s)
 ```
 
 </details>

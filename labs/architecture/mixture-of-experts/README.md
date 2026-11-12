@@ -29,7 +29,7 @@ uv run python labs/architecture/mixture-of-experts/run.py --quick    # 缩小规
 - 第 1 节：只计算被选中的 token 与稠密计算的结果相同（误差 5.6e-17），工作量是 k/E；三种门控（Switch、Mixtral、DeepSeek-V3）的权重和分别是 0.376、1.000、2.5。
 - 第 2 节：在真实模块上数参数（只建形状、不分配内存）：Mixtral 8x7B 总共 46.70B、每 token 激活 12.88B，DeepSeek-V3 总共 671.03B、激活 37.55B，与课程页一致；“8x7B”并不是 8×7B：8 个完整的 Mistral-7B 是 57.9B，而它是 1.61B 共享部分加 8 个 5.64B 的专家。
 - 第 6 节：解码时一个批次会碰到多少专家：Mixtral 批大小 1、4、16、64 依次用到 2.00、5.47、7.92、8.00 个，读到 27.3%、69.2%、98.8%、99.7% 的权重；DeepSeek-V3 要到批大小 22 才有一半专家被用到。
-- 第 7 节：路由偏好越大，最忙的专家越忙（倾斜 1 时是平均的 2.665 倍，29.5% 的分配被容量丢掉）；DeepSeek-V3 的偏置法不用损失项就把负载压回采样噪声的水平（1.19 倍），步长太小太慢、太大则振荡，比不用偏置还差（1.99 倍对 1.75 倍）。
+- 第 7 节：路由偏好越大，最忙的专家越忙（倾斜 1 时是平均的 2.665 倍，29.5% 的分配被容量丢掉）；DeepSeek-V3 的偏置法不用损失项就把负载压回采样噪声的水平（1.19 倍）；步长太小太慢（γ = 0.001，100 步后最忙的专家仍有平均负载的 3.0 倍，γ = 0.01 时只有 1.16 倍），太大则振荡（γ = 0.2 时负载的抖动是 γ = 0.01 的 6 倍），并且在这个种子上比不用偏置还差（1.99 倍对 1.75 倍；5 个种子里有 3 个不是这样，这一条是观察，不成立时打印 `[differs]`）。
 - 第 8 节：在字节上训练的小 MoE 与同成本、同大小的稠密模型比：MoE（有辅助损失）比同激活参数的稠密 FFN 128 只高 0.018 nats，落在种子波动 0.061 以内，实验写明“没有可以声称的差别”；比同总参数的稠密 FFN 512 差 0.109 nats，大于波动。
 
 ## 练习
@@ -71,7 +71,7 @@ uv run python labs/architecture/mixture-of-experts/run.py --quick    # 缩小规
   [ok] one expert and k=1 is an ordinary feed-forward network
 
 ## 2. Total and active parameters, counted on real modules
-  built Mixtral 8x7B and DeepSeek-V3 on the meta device in 7.0s
+  built Mixtral 8x7B and DeepSeek-V3 on the meta device in 9.3s
   Mixtral 8x7B: 46,702,792,704 parameters; 12,879,925,248 active per token (12.88B; 12.75B without the input table)
       the page's closed form has no norm gains (266,240 here): without them 12.75B, 27.3% of the total
   DeepSeek-V3: 671,026,404,352 parameters; 37,552,282,624 active per token (37.55B; 36.63B without the input table)
@@ -168,8 +168,9 @@ uv run python labs/architecture/mixture-of-experts/run.py --quick    # 缩小规
   tilt 0.4, gamma 0.01: Spearman correlation between the learned bias and the popularity -0.98; most popular expert 4, lowest bias 4
   [ok] a reasonable step reaches the sampling floor without any loss term  (1.19x against 1.19x with no preference)
   [ok] the learned bias opposes the popularity
-  [ok] a step that is too small is slow (tilt 1.5, gamma 0.001: still above 2.5x after 100 steps)  (3.02x)
-  [ok] a step that is too large oscillates and is worse than no bias at all (tilt 0.4, gamma 0.2)  (1.99x against 1.75x)
+  [ok] a step that is too small is slow (tilt 1.5: after 100 steps gamma 0.001 leaves the busiest expert at more than 1.5x the load it has with gamma 0.01)  (3.02x against 1.16x)
+  [ok] a step that is too large oscillates: with gamma 0.2 the busiest expert carries more load and its load jumps about more than with gamma 0.01 (tilt 0.4)  (1.99x against 1.19x, jitter 0.355 against 0.057)
+  [ok] ...and with tilt 0.4 it is worse than no bias at all  (1.99x against 1.75x)
   64 experts, k=8, 1024 tokens, tilt 0.4: busiest expert 3.10x and 16.8% dropped with no bias; after 100 steps of gamma 0.005: 1.24x and 0.0%
   [ok] the same mechanism balances a DeepSeek-V3-shaped layer
 
@@ -177,10 +178,10 @@ uv run python labs/architecture/mixture-of-experts/run.py --quick    # 缩小规
   2 layers, d_model 64, 500 steps, validation loss in nats per byte, 3 seed(s)
   model                      params   active   FLOPs/token  ms/step  val loss  range over seeds
   -------------------------  -------  -------  -----------  -------  --------  ----------------
-             dense, FFN 128   98,624   98,624         229k     14.5     1.964     1.956 - 1.969
-  MoE 8x64, top-2, aux 0.01  247,104   99,648         231k     34.5     1.982     1.943 - 2.003
-    MoE 8x64, top-2, no aux  247,104   99,648         231k     31.9     1.931     1.922 - 1.942
-             dense, FFN 512  246,080  246,080         524k     21.0     1.873     1.866 - 1.883
+             dense, FFN 128   98,624   98,624         229k     18.3     1.964     1.956 - 1.969
+  MoE 8x64, top-2, aux 0.01  247,104   99,648         231k     46.6     1.982     1.943 - 2.003
+    MoE 8x64, top-2, no aux  247,104   99,648         231k     35.0     1.931     1.922 - 1.942
+             dense, FFN 512  246,080  246,080         524k     21.2     1.873     1.866 - 1.883
   MoE                        busiest / average load  dropped at factor 1.25
   -------------------------  ----------------------  ----------------------
   MoE 8x64, top-2, aux 0.01                   1.268                    0.6%
@@ -192,7 +193,7 @@ uv run python labs/architecture/mixture-of-experts/run.py --quick    # 缩小规
   [ok] measured FLOPs per token: the MoE costs what the small dense model costs, the wide one more  (1.009x and 2.29x of the small dense model)
   [ok] every variant learned (well below the 5.55 nats of a uniform guess)  (worst 1.982)
 
-All checks passed. (171.1s)
+All checks passed. (205.1s)
 ```
 
 </details>

@@ -185,7 +185,7 @@ uv run python labs/pretraining/distributed-training/run.py --quick    # 缩小�
   [ok] exercise 1: ring all-reduce of the 13.476 GB of gradients sends 23.6 GB per GPU on 8 GPUs and 26.9 GB on 1024  (14% more for 128 times the GPUs)
   [ok] exercise 4: doubling the hidden size halves tensor parallelism's communication per FLOP  (16 (t-1)/t h bytes against 72 h^2 FLOPs per token and layer)
 
-All checks passed. (15.5s)
+All checks passed. (18.9s)
 ```
 
 </details>

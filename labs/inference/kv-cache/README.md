@@ -28,7 +28,7 @@ uv run python labs/inference/kv-cache/run.py --quick    # 缩小规模的冒烟�
 - 第 1 节：KV Cache 的内存公式与页面的数字：Llama 3 8B 每个 token 128 KiB，8,192 个 token 1 GiB，32 条序列 32 GiB，比权重（16.1 GB）还大；没有 GQA 的 Llama 2 7B 每个 token 512 KiB，是它的 4 倍；KV 头数与精度相乘：MHA fp16 的 512 KiB 到 GQA-8 int8 的 64 KiB，再到 MQA int4 的 4 KiB。
 - 第 2 节：公式对真实张量：预填充 100 个 token 后，4 / 2 / 1 个 KV 头的缓存是 409,600 / 204,800 / 102,400 字节，与公式一字不差；预分配的缓存从第一个 token 起就占满整个长度。
 - 第 3 节：有无缓存的解码一致：64 个贪心 token 完全相同，增量路径与整段重算的 logits 最大差 8.3e-07；为写 64 个 token 处理的位置数是 6,112 对 128（48 倍）。
-- 第 4 节：时间（读比值，不读绝对值）：4.8M 参数的 GPT 写 256 个 token，没有缓存时每个 token 的耗时随序列变长而上升（14.4 → 21.3 ms），有缓存时几乎不变（2.1 → 2.2 ms），整段快 8.5 倍；预填充每个 token 0.08 ms，解码 2.07 ms，预填充每 token 便宜 27 倍：解码要读全部权重与整个缓存才产出一个 token，受内存与开销限制，这就是服务系统要把许多序列合成一批的原因。
+- 第 4 节：时间（读比值，不读绝对值）：4.8M 参数的 GPT 写 256 个 token，没有缓存时每个 token 的耗时（每三分之一段的中位数）随序列变长而上升（10.2 → 17.0 ms），有缓存时几乎不变（1.7 → 1.5 ms），整段快 8.3 倍；预填充每个 token 0.06 ms，解码 1.72 ms，预填充每 token 便宜 31 倍：解码要读全部权重与整个缓存才产出一个 token，受内存与开销限制，这就是服务系统要把许多序列合成一批的原因。
 
 ## 练习
 
@@ -91,22 +91,22 @@ uv run python labs/inference/kv-cache/run.py --quick    # 缩小规模的冒烟�
   [ok] counted positions match the page's arithmetic: sum of (P + t) without a cache, P + n with one  (6,112 and 128)
 
 ## 4. Time: the saving, and prefill against decode (CPU; read the ratios)
-  a 4.8M-parameter GPT (6 layers, d = 256) writing 256 tokens after a 128-token prompt; ms per new token, by third of the run:
+  a 4.8M-parameter GPT (6 layers, d = 256) writing 256 tokens after a 128-token prompt; median ms per new token, by third of the run:
             first third  middle third  last third  whole run (s)
   --------  -----------  ------------  ----------  -------------
-  no cache         14.4          18.9        21.3           4.67
-  KV cache          2.1           2.1         2.2           0.54
-  [ok] the cost per token rises through the run without a cache, and rises more slowly with one  (last third over first: no cache x1.48, cache x1.05)
-  [ok] the whole run is at least 3x faster with the cache  (8.5x)
-  the whole run is 8.5x faster with the cache (prefill included).
+  no cache         10.2          14.6        17.0           3.58
+  KV cache          1.7           1.6         1.5           0.42
+  [ok] the cost per token rises through the run without a cache, and rises more slowly with one  (last third over first: no cache x1.67, cache x0.89)
+  [ok] the whole run is at least 3x faster with the cache  (8.3x)
+  the whole run is 8.3x faster with the cache (prefill included).
 
-  prefill: 9.7 ms for 128 tokens = 0.08 ms per token, about 126 GFLOP/s;
-  decode:  2.07 ms per token, about 4.6 GFLOP/s.
-  [ok] prefill handles a token far cheaper than decode does (parallel over the prompt)  (27x cheaper per token)
+  prefill: 7.1 ms for 128 tokens = 0.06 ms per token, about 171 GFLOP/s;
+  decode:  1.72 ms per token, about 5.6 GFLOP/s.
+  [ok] prefill handles a token far cheaper than decode does (parallel over the prompt)  (31x cheaper per token)
   decode reads the weights and the whole cache to produce one token; at batch 1 that is
   memory and overhead bound, which is why serving systems batch many sequences per step.
 
-All checks passed. (5.6s)
+All checks passed. (4.4s)
 ```
 
 </details>
