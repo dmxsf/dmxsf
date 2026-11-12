@@ -4,7 +4,7 @@ Course pages:
   https://dmxsf.com/wiki/foundations/next-token-prediction/
   https://dmxsf.com/wiki/foundations/information-theory/
 
-    uv run python labs/foundations/next-token-prediction/run.py [--quick]
+    uv run python labs/foundations/next-token-prediction/run.py [--quick] [--seed N]
 """
 
 import math

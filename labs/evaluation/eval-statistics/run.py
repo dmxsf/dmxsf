@@ -253,7 +253,8 @@ def main() -> None:
 
     # -----------------------------------------------------------------------------------------
     report.section("5. Two real models on held-out text (base against draft)")
-    base, draft = models.pretrained("base", quick=QUICK), models.pretrained("draft", quick=QUICK)
+    base = models.pretrained("base", quick=QUICK, seed=args.seed)
+    draft = models.pretrained("draft", quick=QUICK, seed=args.seed)
     val = ByteCorpus.shakespeare().val
     block = models.BLOCK
     count = len(val) // block

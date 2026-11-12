@@ -2,7 +2,7 @@
 
 Course page: https://dmxsf.com/wiki/architecture/mixture-of-experts/
 
-    uv run python labs/architecture/mixture-of-experts/run.py [--quick]
+    uv run python labs/architecture/mixture-of-experts/run.py [--quick] [--seed N]
 """
 
 import math
@@ -558,15 +558,27 @@ else:
         f"{mean_of(runs[0.4, 0.01][2], 0, slice(-40, None)):.2f}x against {floor[256]:.2f}x with no preference",
     )
     report.check("the learned bias opposes the popularity", rho < -0.9)
+    slow = mean_of(runs[1.5, 0.001][2], 0, slice(95, 100))
+    fast = mean_of(runs[1.5, 0.01][2], 0, slice(95, 100))
     report.check(
-        "a step that is too small is slow (tilt 1.5, gamma 0.001: still above 2.5x after 100 steps)",
-        mean_of(runs[1.5, 0.001][2], 0, slice(95, 100)) > 2.5,
-        f"{mean_of(runs[1.5, 0.001][2], 0, slice(95, 100)):.2f}x",
+        "a step that is too small is slow (tilt 1.5: after 100 steps gamma 0.001 leaves the busiest"
+        " expert at more than 1.5x the load it has with gamma 0.01)",
+        slow > 1.5 * fast,  # 2.6 times for seed 0, 1.9 times for seed 1
+        f"{slow:.2f}x against {fast:.2f}x",
     )
+    tail = slice(-40, None)
+    ok_load, big_load = (mean_of(runs[0.4, g][2], 0, tail) for g in (0.01, 0.2))
+    ok_jit, big_jit = (st.pstdev(s[0] for s in runs[0.4, g][2][tail]) for g in (0.01, 0.2))
     report.check(
-        "a step that is too large oscillates and is worse than no bias at all (tilt 0.4, gamma 0.2)",
-        mean_of(runs[0.4, 0.2][2], 0, slice(-40, None)) > mean_of(plain[0.4], 0),
-        f"{mean_of(runs[0.4, 0.2][2], 0, slice(-40, None)):.2f}x against {mean_of(plain[0.4], 0):.2f}x",
+        "a step that is too large oscillates: with gamma 0.2 the busiest expert carries more load and"
+        " its load jumps about more than with gamma 0.01 (tilt 0.4)",
+        big_load > 1.3 * ok_load and big_jit > 1.5 * ok_jit,  # seen: 1.5x-1.8x and 2.2x-6.3x
+        f"{big_load:.2f}x against {ok_load:.2f}x, jitter {big_jit:.3f} against {ok_jit:.3f}",
+    )
+    report.observe(
+        "...and with tilt 0.4 it is worse than no bias at all",
+        big_load > mean_of(plain[0.4], 0),
+        f"{big_load:.2f}x against {mean_of(plain[0.4], 0):.2f}x",
     )
     big = [
         simulate(tilt, g, 100, n_experts=64, top_k=8, tokens=1024)

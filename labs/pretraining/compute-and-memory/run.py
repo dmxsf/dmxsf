@@ -5,7 +5,7 @@ Course page: https://dmxsf.com/wiki/pretraining/compute-and-memory/
 Every formula on the page is checked against something that is measured: PyTorch's FLOP counter,
 the tensors autograd saves for the backward pass, and the tensors an optimizer allocates.
 
-    uv run python labs/pretraining/compute-and-memory/run.py [--quick]
+    uv run python labs/pretraining/compute-and-memory/run.py [--quick] [--seed N]
 """
 
 import math

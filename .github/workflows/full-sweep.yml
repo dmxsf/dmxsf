@@ -9,13 +9,14 @@ permissions:
 
 jobs:
   sweep:
-    name: the nine labs whose checks changed, seeds 0 and 1, Python ${{ matrix.python-version }}
+    name: the labs whose checks depend on training, seed ${{ matrix.seed }}, Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     timeout-minutes: 350
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.12"]
+        seed: [0, 1, 2]
     steps:
       - uses: actions/checkout@v7
 
@@ -33,18 +34,16 @@ jobs:
         run: |
           mkdir -p out
           { nproc; python -c "import sys, torch, numpy; print(sys.version.split()[0], torch.__version__, numpy.__version__, torch.get_num_threads())"; } | tee out/_machine.txt
-          for seed in 0 1; do
-            for key in architecture/attention-basics inference/quantization evaluation/llm-evaluation post-training/reasoning-rl pretraining/training-pipeline post-training/sft-data post-training/preference-optimization inference/continuous-batching architecture/efficient-attention; do
-              stem=${key//\//__}
-              start=$(date +%s)
-              code=0
-              timeout 5400 python labs/$key/run.py --seed $seed > out/$stem.s$seed.txt 2> out/$stem.s$seed.err || code=$?
-              echo "$key seed=$seed exit=$code wall=$(( $(date +%s) - start ))s" | tee -a out/_summary.txt
-            done
+          for key in architecture/attention-basics architecture/mixture-of-experts pretraining/scaling-laws pretraining/training-pipeline post-training/sft-data post-training/lora-finetuning post-training/preference-optimization post-training/reasoning-rl evaluation/llm-evaluation inference/quantization inference/kv-cache inference/continuous-batching architecture/efficient-attention inference/speculative-decoding; do
+            stem=${key//\//__}
+            start=$(date +%s)
+            code=0
+            timeout 5400 python labs/$key/run.py --seed ${{ matrix.seed }} > out/$stem.txt 2> out/$stem.err || code=$?
+            echo "$key seed=${{ matrix.seed }} exit=$code wall=$(( $(date +%s) - start ))s" | tee -a out/_summary.txt
           done
 
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: sweep-py${{ matrix.python-version }}
+          name: sweep-py${{ matrix.python-version }}-s${{ matrix.seed }}
           path: out

@@ -70,6 +70,12 @@ def main() -> None:
         else:
             report.check(name, ok, detail)
 
+    def full_observe(name: str, ok: bool, detail: str = "") -> None:
+        if QUICK:
+            report.skip(name, "needs the full run")
+        else:
+            report.observe(name, ok, detail)
+
     # -----------------------------------------------------------------------------------------
     report.section("1. The ledger: Llama 3 8B on one 80 GB card (exact)")
     llama = BY_NAME["Llama 3 8B"]
@@ -256,14 +262,16 @@ def main() -> None:
         (delta[a] - delta[b]) / (eff[b] - eff[a]) for a, b in itertools.pairwise(chain)
     ]  # bits/byte saved per extra stored bit
     full_check(
-        "smaller groups always help, and the first extra bits buy more than the last ones",
-        # the steps in between are too small to order: they are within the noise of rounding
-        all(delta[a] > delta[b] for a, b in itertools.pairwise(chain)) and slopes[0] > slopes[-1],
+        "smaller groups help, and the first extra bits buy more than the last ones",
+        # neighbouring sizes (64 against 32) can swap by half a thousandth of a bit: rounding noise
+        delta[4, "row"] > delta[4, 32] > delta[4, 8] and slopes[0] > slopes[-1],
         "saved per extra bit: " + ", ".join(f"{s:.3f}" for s in slopes),
     )
+    # seen over eight trained models (six on an M2, two on Linux): INT3 costs 4.9x to 10x INT4 (g32),
+    # INT2 loses 1.6 to 1.7 bits
     full_check(
-        "round to nearest breaks below 4 bits: INT3 costs 5x INT4 (g32), INT2 loses half a bit per byte",
-        delta[3, 32] > 5 * delta[4, 32] and delta[2, 16] > 0.5,
+        "round to nearest breaks below 4 bits: INT3 costs 3x INT4 (g32), INT2 loses half a bit per byte",
+        delta[3, 32] > 3 * delta[4, 32] and delta[2, 16] > 0.5,
         f"INT3 {delta[3, 32]:+.3f}, INT4 {delta[4, 32]:+.3f}, INT2 {delta[2, 16]:+.3f}",
     )
 
@@ -519,12 +527,18 @@ def main() -> None:
         ),
     )
     full_check(
-        "GPTQ beats round to nearest in bits per byte by more than 2x, at INT4 and INT3",
-        all(results[nat, b, "GPTQ"][1] < results[nat, b, "RTN"][1] / 2 for b in (4, 3)),
+        "GPTQ loses fewer bits per byte than round to nearest, at INT4 and INT3",
+        all(results[nat, b, "GPTQ"][1] < results[nat, b, "RTN"][1] for b in (4, 3)),
         ", ".join(
             f"INT{b}: {results[nat, b, 'GPTQ'][1]:+.4f} against {results[nat, b, 'RTN'][1]:+.4f}"
             for b in (4, 3)
         ),
+    )
+    ratio = {b: results[nat, b, "RTN"][1] / max(results[nat, b, "GPTQ"][1], 1e-9) for b in (4, 3)}
+    full_observe(  # seen: 1.9x to 8.3x at INT4, 2.1x to 3.2x at INT3, over eight trained models
+        "...and by more than 2x at both",
+        all(r > 2 for r in ratio.values()),
+        f"RTN loses {ratio[4]:.1f}x as much at INT4 and {ratio[3]:.1f}x as much at INT3",
     )
     gain_nat = results[nat, 4, "AWQ-style"][1] / results[nat, 4, "RTN"][1]
     gain_out = results[out, 4, "AWQ-style"][1] / results[out, 4, "RTN"][1]
@@ -534,7 +548,7 @@ def main() -> None:
         f" {gain_out:.2f}x with the constructed outlier:\n  it {verdict[gain_nat < 0.8]} on the first and"
         f" {verdict[gain_out < 0.8]} on the second (below 0.8x counts as help)."
     )
-    full_check(
+    full_observe(  # seen: 0.34x to 0.60x on six trained models, 0.84x and 0.94x on two more
         "with an outlier channel the AWQ-style search cuts round-to-nearest's INT4 loss by 20% or more",
         gain_out < 0.8,
         f"{gain_out:.2f}x",

@@ -144,7 +144,7 @@ def main() -> None:
 
     # -----------------------------------------------------------------------------------------
     report.section("4. Train with the leak, then ask the benchmark")
-    base = models.pretrained("base", quick=QUICK)
+    base = models.pretrained("base", quick=QUICK, seed=args.seed)
     results = []  # per seed: {group: (n, 2) array}, format results
     formats = {
         "as in training": C.prompt,

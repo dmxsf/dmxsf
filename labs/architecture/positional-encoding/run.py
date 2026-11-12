@@ -3,7 +3,7 @@
 Course pages: https://dmxsf.com/wiki/architecture/positional-encoding/
               https://dmxsf.com/wiki/architecture/long-context/
 
-    uv run python labs/architecture/positional-encoding/run.py [--quick]
+    uv run python labs/architecture/positional-encoding/run.py [--quick] [--seed N]
 """
 
 import math

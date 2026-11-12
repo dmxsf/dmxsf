@@ -10,7 +10,7 @@ Course page: https://dmxsf.com/wiki/pretraining/distributed-training/
 5. pipeline schedules (GPipe, 1F1B) simulated: bubbles and activation memory;
 6. the page's communication arithmetic for a 7B model.
 
-    uv run python labs/pretraining/distributed-training/run.py [--quick]
+    uv run python labs/pretraining/distributed-training/run.py [--quick] [--seed N]
 
 The workers are started with ``spawn``, which imports this file again in every process: that is why
 everything below sits under the main guard.

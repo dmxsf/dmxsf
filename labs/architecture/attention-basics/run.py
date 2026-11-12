@@ -2,7 +2,7 @@
 
 Course page: https://dmxsf.com/wiki/architecture/attention-basics/
 
-    uv run python labs/architecture/attention-basics/run.py [--quick]
+    uv run python labs/architecture/attention-basics/run.py [--quick] [--seed N]
 """
 
 import copy
@@ -111,7 +111,6 @@ def split_loss(loss, s2):
     return loss[predictable].mean().item(), loss[~predictable].mean().item()
 
 
-torch.manual_seed(args.seed)
 cfg = GPTConfig(
     vocab_size=VOCAB,
     block_size=T,
@@ -123,38 +122,58 @@ cfg = GPTConfig(
     mlp="swiglu",
     bias=False,
 )
-model = GPT(cfg)
-opt = torch.optim.AdamW(model.parameters(), lr=2e-3, weight_decay=0.0)
-train_gen = torch.Generator().manual_seed(100 + args.seed)
 eval_seq, eval_s1, eval_s2 = make_batch(256, torch.Generator().manual_seed(99))
 report.say(
-    f"  2 layers x 4 heads, d_model 64, {model.num_params():,} parameters; "
+    f"  2 layers x 4 heads, d_model 64, {GPT(cfg).num_params():,} parameters; "
     f"vocabulary {VOCAB}, ln(vocab) = {math.log(VOCAB):.3f}"
 )
-history = []
 log_every = steps // 40
-# The step where the repeat clicks depends on the seed and on the machine (about 1,000 to 1,300 on the
-# machines tried, much later on others). So train for `steps`, or until 700 steps after the click if
-# that is later, but never past 6,000.
-limit = steps if args.quick else 6000
-turned = None  # the first evaluation with the repeat's loss below half of chance
-step = 0
-while step < limit:
-    step += 1
-    seq, _, _ = make_batch(batch_size, train_gen)
-    loss = per_token_loss(model, seq).mean()
-    opt.zero_grad()
-    loss.backward()
-    opt.step()
-    if step % log_every == 0:
-        with torch.no_grad():
-            history.append((step, *split_loss(per_token_loss(model, eval_seq), eval_s2)))
-        if turned is None and not args.quick and history[-1][1] < math.log(VOCAB) / 2:
-            turned = step
-            limit = min(limit, max(steps, turned + 700))
+# The step where the repeat clicks (its loss below 1 nat) depends on the seed and on the machine: between
+# 1,100 and 1,800 for 13 of the 14 seeds tried on one machine, and the 14th had still not clicked after
+# 8,000 steps; a seed on a Linux runner had not after 3,000 either. So a run lasts `steps`, or 300 steps
+# after the click if that is later; a run that has not clicked after STALL steps is dropped and training
+# starts again with another seed (a fresh initialisation).
+STALL, ATTEMPTS = 3000, 3
+
+
+def train_copy(seed: int):
+    torch.manual_seed(seed)
+    model = GPT(cfg)
+    opt = torch.optim.AdamW(model.parameters(), lr=2e-3, weight_decay=0.0)
+    train_gen = torch.Generator().manual_seed(100 + seed)
+    history, clicked, step = [], None, 0
+    limit = steps if args.quick else STALL
+    while step < limit:
+        step += 1
+        seq, _, _ = make_batch(batch_size, train_gen)
+        loss = per_token_loss(model, seq).mean()
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+        if step % log_every == 0:
+            with torch.no_grad():
+                history.append((step, *split_loss(per_token_loss(model, eval_seq), eval_s2)))
+            if clicked is None and not args.quick and history[-1][1] < 1.0:
+                clicked = step
+                limit = min(limit, max(steps, step + 300))
+    return model, history, step, clicked
+
+
+for attempt in range(1 if args.quick else ATTEMPTS):
+    seed = args.seed + 100 * attempt
+    model, history, step, clicked = train_copy(seed)
+    if args.quick or clicked:
+        break
+    again = f"; training again with seed {seed + 100}" if attempt + 1 < ATTEMPTS else ""
+    report.say(
+        f"  (seed {seed}: the repeat's loss is still {history[-1][1]:.2f} nats after {step:,} steps"
+        f"{again})"
+    )
 report.table(["step", "loss on the repeat", "loss elsewhere"], history[3::4])
-if step > steps:
-    report.say(f"  (the repeat clicked late on this machine, so the run went on to step {step})")
+if clicked and step > steps:
+    report.say(
+        f"  (the repeat's loss fell below 1 nat at step {clicked}, so the run went on to step {step})"
+    )
 final_copy, final_other = history[-1][1], history[-1][2]
 # the biggest fall over two consecutive evaluations (100 steps)
 falls = [

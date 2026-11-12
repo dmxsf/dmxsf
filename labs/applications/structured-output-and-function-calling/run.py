@@ -166,7 +166,7 @@ def main() -> None:
         and [str(v["By"]) for v in dist.values()] == ["9/10", "1/2"],
     )
 
-    base = models.pretrained("base", quick=QUICK)
+    base = models.pretrained("base", quick=QUICK, seed=args.seed)
     words = ["love", "lord", "lady", "death", "dead", "king", "kind"]
     prefix = b"ROMEO:\nO, speak again, bright angel! My "
     table, valid_mass = finite_language_distributions(base, prefix, words, end=" ")

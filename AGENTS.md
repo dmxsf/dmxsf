@@ -70,6 +70,7 @@ uv run python scripts/export_site_data.py > /path/to/dmxsf.com/src/data/code-lab
 ## 7. 常见坑
 
 - **缓存的小模型。** `models.pretrained("base")` 第一次运行要在 TinyShakespeare 上训练约 3 分钟，之后读 `~/.cache/dmxsf`（`DMXSF_CACHE` 可改）。改了 `models.py` 的 `SPECS`、训练配置、`GPT` 的结构或初始化，要清缓存再跑，否则 README 里的数字对不上。
+- **`--seed N` 要平移实验里的所有种子**：`models.pretrained(…, seed=args.seed)`（缓存文件名里带种子）、数据集抽样、初始化、洗牌和噪声都要跟着动，不能留一个写死的 `0`；实验内部用多个种子量噪声时，用 `N`、`N + 1`……。抽样、加噪声与洗牌各用不同的偏移：同样的种子喂给两个 `Random`，吐出的是同一串数字。README 里的输出来自 `--seed 0`；新实验写完，确认 `--seed 1` 的输出确实与 `--seed 0` 不同。
 - **Python 标准库当语料。** `ByteCorpus.python_code()` 读的是当前解释器的标准库，换 Python 版本数字会略有不同；用到它的实验在 README 里写了这一点，检查阈值要留余量。
 - **计时类检查。** KV Cache、连续批处理、投机解码的耗时随机器和负载波动：只检查比值与方向，并且不要在跑它们的同时做别的吃 CPU 的事（构建、第二个训练）。
 - **`--quick` 的检查不能依赖训练好的模型，也不能依赖版本。** 训练 60 步的小模型不会有完整运行里的现象，这类结论一律 `skip(…, "needs the full run")`。换 Python 或 PyTorch 版本结果也要一样：浮点求和后再取整用 `math.fsum`（3.12 的 `sum()` 做了补偿求和，3.10 没有，0.475 这种平局会取整成不同的数）；PyTorch 2.14 的 `FlopCounterMode` 不统计 CPU 上融合的注意力核，相关检查要先判断能否统计，不能就 `skip`。

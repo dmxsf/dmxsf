@@ -2,7 +2,7 @@
 
 Course page: https://dmxsf.com/wiki/foundations/tokenizer-and-embeddings/
 
-    uv run python labs/foundations/tokenizer-and-embeddings/run.py [--quick]
+    uv run python labs/foundations/tokenizer-and-embeddings/run.py [--quick] [--seed N]
 """
 
 import itertools

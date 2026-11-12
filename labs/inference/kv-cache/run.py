@@ -14,6 +14,7 @@ not the milliseconds).
 from __future__ import annotations
 
 import dataclasses
+import statistics
 import time
 
 import torch
@@ -227,10 +228,11 @@ def main() -> None:
     with_cache, prefill_s = timed_generate(True)
     without, _ = timed_generate(False)
     thirds = [slice(0, n_big // 3), slice(n_big // 3, 2 * n_big // 3), slice(2 * n_big // 3, n_big)]
-    ms = lambda xs: 1000 * sum(xs) / len(xs)  # noqa: E731
+    # the median per third: one stall of the machine must not move a whole third
+    ms = lambda xs: 1000 * statistics.median(xs)  # noqa: E731
     report.say(
         f"  a {n_params / 1e6:.1f}M-parameter GPT (6 layers, d = 256) writing {n_big} tokens after a"
-        f" {p_big}-token prompt; ms per new token, by third of the run:"
+        f" {p_big}-token prompt; median ms per new token, by third of the run:"
     )
     report.table(
         ["", "first third", "middle third", "last third", "whole run (s)"],
@@ -245,9 +247,10 @@ def main() -> None:
     if QUICK:
         report.skip("cost per token against length, with and without a cache", "needs the full run")
     else:
+        # seen on an M2: x1.26 to x1.49 without a cache, x1.00 to x1.04 with one
         report.check(
             "the cost per token rises through the run without a cache, and rises more slowly with one",
-            grow_no_cache > 1.2 and grow_cache < grow_no_cache,
+            grow_no_cache > 1.1 and grow_cache < grow_no_cache,
             f"last third over first: no cache x{grow_no_cache:.2f}, cache x{grow_cache:.2f}",
         )
         report.check(

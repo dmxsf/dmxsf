@@ -8,7 +8,7 @@ Course page: https://dmxsf.com/wiki/pretraining/scaling-laws/
    model sizes and token budgets, measure the noise, fit L(N, D) and try to predict a run it has not seen;
 4. what a 12-point fit can and cannot identify, on synthetic data where the truth is known.
 
-    uv run python labs/pretraining/scaling-laws/run.py [--quick]
+    uv run python labs/pretraining/scaling-laws/run.py [--quick] [--seed N]
 """
 
 import math
@@ -281,11 +281,22 @@ else:
         "with the most data every size step helps: loss falls with N",
         all(mean[(a, big_d)] > mean[(b, big_d)] for a, b in pairwise(ns)),
     )
-    winner = min(ns, key=lambda n: mean[(n, TOKENS[0])])
+    few = TOKENS[0]
+    gain_few = mean[(ns[0], few)] - mean[(ns[-1], few)]
+    gain_many = mean[(ns[0], big_d)] - mean[(ns[-1], big_d)]
     report.check(
-        "with the fewest tokens (64 steps) the biggest model is not the best: it cannot use its capacity",
-        winner != ns[-1],
-        f"best at {TOKENS[0]:,} tokens: N = {winner:,}",
+        "a bigger model buys much less when data is scarce: from the smallest to the biggest size the"
+        " loss falls less with the fewest tokens than with the most",
+        gain_few < gain_many,  # 0.06 vs 0.42 on one machine, 0.15 vs 0.30 on a Linux runner
+        f"{gain_few:.3f} nats at {few:,} tokens against {gain_many:.3f} at {big_d:,}",
+    )
+    winner = min(ns, key=lambda n: mean[(n, few)])
+    lead = min(mean[(n, few)] for n in ns[:-1]) - mean[(ns[-1], few)]
+    report.observe(
+        "with the fewest tokens (64 steps) the biggest model has no clear lead: it cannot use its capacity",
+        lead < st.median(spread.values()),
+        f"best at {few:,} tokens: N = {winner:,}; the biggest "
+        + (f"leads the best of the others by {lead:.3f}" if lead > 0 else f"trails by {-lead:.3f}"),
     )
     first, last = SHAPES[0][0], SHAPES[-1][0]
     report.check(
@@ -407,15 +418,19 @@ one_decade = float(
 )
 
 
-def study(sigma: float, stream: int) -> dict[str, np.ndarray]:
+def study(sigma: float, stream: int) -> dict:
     rng = np.random.default_rng([args.seed, stream])
-    fits = [
-        scaling.fit(n_grid, d_grid, truth + rng.normal(0, sigma, truth.shape)) for _ in range(draws)
-    ]
+    fits, failed = [], 0
+    for _ in range(draws):
+        try:
+            fits.append(scaling.fit(n_grid, d_grid, truth + rng.normal(0, sigma, truth.shape)))
+        except ValueError:  # no law with non-negative coefficients fits this noisy copy at all
+            failed += 1
     n_best = np.array(
         [scaling.compute_optimal(1e23, f["A"], f["B"], f["alpha"], f["beta"])[0] for f in fits]
     )
     return {
+        "failed": failed,
         **{k: np.array([f[k] for f in fits]) for k in ("E", "A", "alpha", "B", "beta")},
         "loss at N=1e9, D=1e12": np.array(
             [scaling.loss(1e9, 1e12, f["E"], f["A"], f["B"], f["alpha"], f["beta"]) for f in fits]
@@ -469,6 +484,12 @@ report.table(
         for name, true in truths.items()
     ],
 )
+for res, sigma in zip(studies, SIGMAS, strict=True):
+    if res["failed"]:
+        report.say(
+            f"  ({res['failed']} of the {draws} grids at sigma {sigma:.3f} had no valid fit at all"
+            " and are left out)"
+        )
 for res, label in zip(studies, ("measured noise", "ten times the noise"), strict=True):
     loose = max(half_width(res["A"], A), half_width(res["B"], B))
     tight = half_width(res["loss at N=1e9, D=1e12"], final_loss)

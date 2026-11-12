@@ -75,10 +75,10 @@ def main() -> None:
     )
 
     # the template is part of the data: a model trained on one prompt, asked with another
-    train_k = intents.make_dataset(DEFAULT_K, seed=1)
+    train_k = intents.make_dataset(DEFAULT_K, seed=1 + args.seed)
     test = intents.make_dataset(25 if not QUICK else 5, seed=99, exclude={t for t, _ in train_k})
     test_texts = {t for t, _ in test}
-    base = models.pretrained("base", quick=QUICK)
+    base = models.pretrained("base", quick=QUICK, seed=args.seed)
     base_bpb = models.shakespeare_bpb(base)
 
     def examples(pairs, mask=True):
@@ -96,7 +96,11 @@ def main() -> None:
         ]
 
     def run(k, *, noise=0.0, mask=True, replay=False, seed=0, data_seed=1, steps=STEPS):
-        """Fine-tune a copy of the base on k examples per intent; score accuracy and forgetting."""
+        """Fine-tune a copy of the base on k examples per intent; score accuracy and forgetting.
+
+        ``seed`` and ``data_seed`` are relative to ``--seed``: every run shifts by the same amount.
+        """
+        seed, data_seed = seed + args.seed, data_seed + args.seed
         pairs = intents.make_dataset(k, seed=data_seed, exclude=test_texts)
         if noise:  # an independent random stream: not the data's, not the training's
             pairs = noisy(pairs, noise, seed=10_000 + 7 * data_seed)
@@ -404,18 +408,15 @@ def main() -> None:
 
     # -----------------------------------------------------------------------------------------
     report.section("5. Experiment: how much does a run vary when nothing is changed?")
-    noise_runs = [default]
+    noise_runs, labels_ = [default], ["default"]
     for seed, data_seed in [(1, 1)] if QUICK else [(1, 1), (2, 1), (0, 2), (0, 3)]:
         noise_runs.append(run(DEFAULT_K, seed=seed, data_seed=data_seed))
+        labels_.append(
+            f"training seed {seed + args.seed}"
+            if data_seed == 1
+            else f"data subset {data_seed + args.seed}"
+        )
     accs = [r["accuracy"] for r in noise_runs]
-    labels_ = [
-        "default",
-        *(
-            ["training seed 1"]
-            if QUICK
-            else ["training seed 1", "training seed 2", "data subset 2", "data subset 3"]
-        ),
-    ]
     report.table(
         ["run", "accuracy", "shakespeare bits/byte"],
         [

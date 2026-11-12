@@ -2,7 +2,7 @@
 
 Course page: https://dmxsf.com/wiki/foundations/optimizers-and-training-stability/
 
-    uv run python labs/foundations/optimizers-and-training-stability/run.py [--quick]
+    uv run python labs/foundations/optimizers-and-training-stability/run.py [--quick] [--seed N]
 """
 
 import math

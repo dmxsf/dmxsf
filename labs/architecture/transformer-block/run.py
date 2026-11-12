@@ -3,7 +3,7 @@
 Course pages: https://dmxsf.com/wiki/architecture/transformer-block/
               https://dmxsf.com/wiki/architecture/modern-llm-architecture/
 
-    uv run python labs/architecture/transformer-block/run.py [--quick]
+    uv run python labs/architecture/transformer-block/run.py [--quick] [--seed N]
 """
 
 import itertools

@@ -111,9 +111,9 @@ def main() -> None:
 
     # -----------------------------------------------------------------------------------------
     report.section("2. Mechanics on the pretrained byte model")
-    base = models.pretrained("base", quick=QUICK)
+    base = models.pretrained("base", quick=QUICK, seed=args.seed)
     base_bpb = models.shakespeare_bpb(base)
-    torch.manual_seed(0)
+    torch.manual_seed(args.seed)
     layer = base.blocks[0]
     rows = []
     for name, lin in (("attn.q_proj", layer.attn.q_proj), ("mlp.fc", layer.mlp.fc)):
@@ -163,7 +163,7 @@ def main() -> None:
     )
 
     # -----------------------------------------------------------------------------------------
-    train_pairs = intents.make_dataset(DEFAULT_K, seed=1)
+    train_pairs = intents.make_dataset(DEFAULT_K, seed=1 + args.seed)
     test = intents.make_dataset(
         25 if not QUICK else 5, seed=99, exclude={t for t, _ in train_pairs}
     )
@@ -184,7 +184,11 @@ def main() -> None:
     def run(
         mode="lora", *, lr=3e-3, r=8, alpha=16.0, targets="all", seed=0, data_seed=1, quant=False
     ):
-        """One fine-tuning run from the pretrained model; returns scores and the trained model."""
+        """One fine-tuning run from the pretrained model; returns scores and the trained model.
+
+        ``seed`` and ``data_seed`` are relative to ``--seed``: every run shifts by the same amount.
+        """
+        seed, data_seed = seed + args.seed, data_seed + args.seed
         pairs = intents.make_dataset(DEFAULT_K, seed=data_seed, exclude=exclude)
         ex = examples(pairs)
         model = copy.deepcopy(base)
@@ -327,7 +331,7 @@ def main() -> None:
         return [block.get_submodule(path) for block in model.blocks]
 
     rows, full_e, rand_e = [], {}, {}
-    gen = torch.Generator().manual_seed(0)
+    gen = torch.Generator().manual_seed(args.seed)
     for key, path in kinds.items():
         base_w = [m.weight for m in at(base, path)]
         full_w = [m.weight for m in at(full_model, path)]

@@ -2,7 +2,7 @@
 
 Course page: https://dmxsf.com/wiki/architecture/efficient-attention/
 
-    uv run python labs/architecture/efficient-attention/run.py [--quick]
+    uv run python labs/architecture/efficient-attention/run.py [--quick] [--seed N]
 """
 
 import statistics as st

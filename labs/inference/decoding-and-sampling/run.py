@@ -107,7 +107,7 @@ def main() -> None:
 
     # -----------------------------------------------------------------------------------------
     report.section("3. What the settings do to text (byte-level GPT on TinyShakespeare)")
-    model = models.pretrained("base", quick=QUICK)
+    model = models.pretrained("base", quick=QUICK, seed=args.seed)
     corpus = ByteCorpus.shakespeare()
     vocabulary = set(re.findall(r"[a-z']+", bytes(corpus.train).decode().lower()))
     n_prompts, plen, new = (8, 48, 24) if QUICK else (64, 48, 80)
