@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # The labs are CPU-only, so take the small CPU build of PyTorch instead of the CUDA wheels.
+      - name: Install
+        run: |
+          uv venv
+          uv pip install --torch-backend cpu -e . --group dev
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Lint
+        if: matrix.python-version == '3.12'
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Unit tests and the course map
+        run: pytest -m "not slow"
+
+      # Every lab, shrunk with --quick: the scripts check their own results and exit non-zero on a failure.
+      - name: Labs, --quick
+        run: pytest -m slow

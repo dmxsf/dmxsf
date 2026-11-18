@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dmxsf"
+version = "0.1.0"
+description = "Companion code for the DMXSF LLM algorithms course (dmxsf.com): every core idea, rebuilt from scratch in PyTorch and checked by tests."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["llm", "transformer", "pytorch", "tutorial", "from-scratch"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Education",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.26",
+    "torch>=2.5",
+]
+
+[project.optional-dependencies]
+# the real models of the optional --hf / --bge paths: Qwen2.5 (prompt engineering), BGE (RAG),
+# CLIP and CIFAR-10 (multimodal). Every lab runs without them.
+hf = ["transformers>=4.45", "datasets>=3", "pillow>=10"]
+
+[project.urls]
+Course = "https://dmxsf.com"
+Code = "https://dmxsf.com/code/"
+Source = "https://github.com/dmxsf/dmxsf"
+
+[project.scripts]
+dmxsf = "dmxsf.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.8",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dmxsf"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "labs"]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = [
+    "E741",   # single-letter names (l, I) are fine in math-heavy code
+    "RUF001", # the docstrings use real math symbols on purpose
+    "RUF002",
+    "RUF003",
+    "SIM108",
+    "C408",   # dict(lr=lr, ...) reads well for optimizer defaults
+    "SIM905", # ``"a b c".split()`` is easier to read than a list of strings
+    "E501",   # ``ruff format`` wraps code at 100 columns; long docstrings and URLs are fine
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "slow: runs a whole lab script end to end (deselect with -m 'not slow')",
+]
